@@ -1,5 +1,8 @@
 var analytics = require('analytics');
-
+//import "functions.js"
+//printSomething("something");
+var Service = {}; Service.Mobis = {}; Service.Mobis.Loop = require('Service/Mobis/Loop/functions.js');
+console.say(Service.Mobis.Loop.about());
 
 // Loading store for counter Nodes
 var filename_counters_n = "./sandbox/sensors/countersNodes.txt";
@@ -36,21 +39,47 @@ var measurementIds = fileListMeasures.map( function(element) {return element.sub
 
 // Load measurement files to stores
 for (var i=0; i<fileListMeasures.length; i++) {
-  // Creating Store for measurements
+  // Creating name for stores
   var storeName = "CounterMeasurement"+measurementIds[i];
+  var storeNameClean = storeName + "_Cleaned";
+
+  // Creating Store for measurements
   measurementStoresDef(storeName);
+  measurementStoresDef(storeNameClean);
 
   // Load measurement files to created store
   var store = qm.store(storeName);
   qm.load.jsonFile(store, fileListMeasures[i]);
 }
 
+
 // Open the first two stores
 var testStore = qm.store(qm.getStoreList()[1].storeName);
-var records = testStore.recs;
-console.say("Print few record from the loaded store: " + testStore.name);
-for (var ii=0; ii<10; ii++) {
-  console.say("Store List: " + JSON.stringify(records[ii]));
-}
+var testStoreClean = qm.store(qm.getStoreList()[2].storeName);
 
+testStoreClean.addTrigger({
+  onAdd : Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean)
+});
+
+
+
+
+var records = testStore.recs;
+
+for (var ii=0; ii<records.length; ii++) {
+  var rec = records[ii];
+  var val = rec.toJSON();
+
+  console.say("Ori: " + JSON.stringify(rec));
+
+  delete val.$id; // when adding to QMiner, $id must not exist
+  // add the join fields (different syntax)
+  testStoreClean.joins.forEach(function(join) {
+    val[join] = {$id: rec[join].$id};
+  });
+  // add value
+  testStoreClean.add(val);
+
+  console.say("New: " + JSON.stringify(testStoreClean.recs[ii]));
+}
 
