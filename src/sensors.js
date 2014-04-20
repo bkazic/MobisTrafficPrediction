@@ -47,7 +47,9 @@ for (var i=0; i<fileListMeasures.length; i++) {
   // Creating Store for measurements
   measurementStoresDef(storeName);
   measurementStoresDef(storeNameClean);
-  measurementStoresDef(storeNameResampled, [{ "name" : "Prediction", "type" : "float", "null" : true }]);
+  measurementStoresDef(storeNameResampled, [{ "name" : "Ema1", "type" : "float", "null" : true },
+                                            { "name" : "Ema2", "type" : "float", "null" : true },
+                                            { "name" : "Prediction", "type" : "float", "null" : true}]);
 
   // Load measurement files to created store
   var store = qm.store(storeName);
@@ -81,17 +83,28 @@ testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
             { name: "TrafficStatus", interpolator: "previous" } ],
   createStore: false, interval: 60*1000 });
 
+// insert testStoreResampled store aggregates
+testStoreResampled.addStreamAggr({ name: "tick", type: "timeSeriesTick",
+                                   timestamp: "DateTime", value: "Speed" });
+testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick", 
+                                  emaType: "previous", interval: 2000*1000, initWindow: 600*1000 });
+testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick", 
+                                  emaType: "previous", interval: 10000*1000, initWindow: 600*1000 });
+
+
+// Buffer defines for how many records infront prediction will be learned
+testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 6});
+
 
 // Define feature space
 var ftrSpace = analytics.newFeatureSpace([
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
-  //{ type: "numeric", source: testStoreResampled.name, field: "Ema1" },
-  //{ type: "numeric", source: testStoreResampled.name, field: "Ema2" },
+  { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
+  { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
   { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
 ]);
 
-// Buffer defines for how many records infront prediction will be learned
-testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 6});
+
 
 // initialize linear regression
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
@@ -101,10 +114,13 @@ var mean = 0;
 // Defines what
 testStoreResampled.addTrigger({
   onAdd: function (rec) {
-    var prediction = linreg.predict(ftrSpace.ftrVec(rec));
-    var trainRecId = testStoreResampled.getStreamAggr("delay").last;
+    var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
+    var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
+    testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
-    
+    var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+
+    var trainRecId = testStoreResampled.getStreamAggr("delay").last;
 
     if (trainRecId > 0) {
       testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
