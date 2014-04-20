@@ -79,7 +79,7 @@ testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
             { name: "Occupancy", interpolator: "previous" },
             { name: "Speed", interpolator: "previous" },
             { name: "TrafficStatus", interpolator: "previous" } ],
-  createStore: false, interval: 600*1000 });
+  createStore: false, interval: 60*1000 });
 
 
 // Define feature space
@@ -96,21 +96,31 @@ testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 6}
 // initialize linear regression
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
+var sumError = 0;
+var mean = 0;
 // Defines what
 testStoreResampled.addTrigger({
   onAdd: function (rec) {
     var prediction = linreg.predict(ftrSpace.ftrVec(rec));
     var trainRecId = testStoreResampled.getStreamAggr("delay").last;
 
-    testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
+    
 
     if (trainRecId > 0) {
+      testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
       linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
     }
 
     // check prediction
     var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
     console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+
+    // doesent make sense, because at the start the error is to large
+    if (testStoreResampled.length < 10) {return;}
+    sumError += diff;
+    console.say(testStoreResampled.length.toString() + " and " + JSON.stringify(testStoreResampled.length-9) + " and " + sumError);
+    mean = sumError / (testStoreResampled.length-9);
+    console.log("Total error: " + mean);
   }
 });
 
@@ -130,3 +140,21 @@ for (var jj=0; jj<testStoreResampled.length; jj++) {
   //console.say(JSON.stringify(rec));
 }
 
+
+// print for validation of prediction
+var totalMeanError = 0;
+var count = 0;
+for(var ii = 0; ii < testStoreClean.recs.length; ii++) {
+  var rec = testStoreClean.recs[ii]; // real value
+  var comparable = testStoreResampled.recs; // predicted value
+  comparable.filterByField("DateTime", rec.DateTime.string);
+  if(!comparable) { count++; continue; };
+  if(comparable.length === 0) { count++; console.say(JSON.stringify(rec)); continue; };
+  var pred = comparable[0].Prediction;
+  var diff = Math.round(Math.abs(rec.Speed - pred) * 1000) / 1000;
+  console.say("diff = " + diff);
+  totalMeanError += diff;
+}
+totalMeanError /= testStoreClean.recs.length - count;
+console.say("total = " + totalMeanError);
+console.say("count = " + count);
