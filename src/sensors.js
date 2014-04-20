@@ -70,39 +70,11 @@ testStoreClean.addTrigger({
 
 
 var records = testStore.recs;
-
-
 for (var ii=0; ii<records.length; ii++) {
   var rec = records[ii];
-  var val = rec.toJSON();
 
   console.say("Ori: " + JSON.stringify(rec));
-  
-  var result = testStoreClean.recs;
-  
-  result.filterByField("DateTime", rec.DateTime.string);
-  console.say("Test kaj vrnes: " + JSON.stringify(result.length));
-  // if (result.length > 0) {
-  //   //return console.say("Skip this shit!");
-  //   continue;
-  // }
-  if(typeof result != 'undefined') {
-    if(result.hasOwnProperty("length")) { // checks if object has the specified property
-      if(result.length > 0) {
-        continue; // DO NOT ADD
-      }
-    }
-  }
-
-  delete val.$id; // when adding to QMiner, $id must not exist
-  // add the join fields (different syntax)
-  testStoreClean.joins.forEach(function(join) {
-    val[join] = {$id: rec[join].$id};
-  });
-  // add value
-  testStoreClean.add(val);
-
-  console.say("Val: " + JSON.stringify(val));
+  Service.Mobis.Loop.addNoDuplicateValues(testStoreClean, rec);
   console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
 
