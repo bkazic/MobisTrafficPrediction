@@ -1,8 +1,11 @@
 var analytics = require('analytics');
-//import "functions.js"
-//printSomething("something");
-var Service = {}; Service.Mobis = {}; Service.Mobis.Loop = require('Service/Mobis/Loop/functions.js');
+//import "functions.j
+var Service = {}; Service.Mobis = {};
+Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
+Service.Mobis.Evaluation = require('Service/Mobis/Evaluation/stat.js');
 console.say(Service.Mobis.Loop.about());
+console.say(Service.Mobis.Evaluation.about());
+
 
 // Loading store for counter Nodes
 var filename_counters_n = "./sandbox/sensors/countersNodes.txt";
@@ -129,14 +132,12 @@ testStoreResampled.addTrigger({
 
     // check prediction
     var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
-    console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+    //console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
 
     // doesent make sense, because at the start the error is to large
-    if (testStoreResampled.length < 10) {return;}
-    sumError += diff;
-    console.say(testStoreResampled.length.toString() + " and " + JSON.stringify(testStoreResampled.length-9) + " and " + sumError);
-    mean = sumError / (testStoreResampled.length-9);
-    console.log("Total error: " + mean);
+    // if (testStoreResampled.length < 10) {return;}
+    // var mean = Service.Mobis.Evaluation.onlineMeanError(diff);
+    // console.log("Total error: " + mean);
   }
 });
 
@@ -157,20 +158,5 @@ for (var jj=0; jj<testStoreResampled.length; jj++) {
 }
 
 
-// print for validation of prediction
-var totalMeanError = 0;
-var count = 0;
-for(var ii = 0; ii < testStoreClean.recs.length; ii++) {
-  var rec = testStoreClean.recs[ii]; // real value
-  var comparable = testStoreResampled.recs; // predicted value
-  comparable.filterByField("DateTime", rec.DateTime.string);
-  if(!comparable) { count++; continue; };
-  if(comparable.length === 0) { count++; console.say(JSON.stringify(rec)); continue; };
-  var pred = comparable[0].Prediction;
-  var diff = Math.round(Math.abs(rec.Speed - pred) * 1000) / 1000;
-  console.say("diff = " + diff);
-  totalMeanError += diff;
-}
-totalMeanError /= testStoreClean.recs.length - count;
-console.say("total = " + totalMeanError);
-console.say("count = " + count);
+var meanErr = Service.Mobis.Evaluation.meanError(testStoreClean.recs, testStoreResampled.recs);
+console.say("Ajga! Mean error: " + meanErr);
