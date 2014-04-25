@@ -1,6 +1,8 @@
 var analytics = require('analytics');
+var assert = require('assert.js');
 //import "functions.j
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
+Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegression.js');
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
 Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
@@ -112,9 +114,13 @@ var ftrSpace = analytics.newFeatureSpace([
 
 
 // initialize linear regression
-var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
+//var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
-var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
+// Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
+console.say(Service.Mobis.Utils.RidgeRegression.about());
+var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
+
+//var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 // Defines what
 testStoreResampled.addTrigger({
   onAdd: function (rec) {
@@ -122,27 +128,25 @@ testStoreResampled.addTrigger({
     var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
     testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
-    var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+    var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
     testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
-    console.say("Input for prediction: " + JSON.stringify(rec) + "\n");
-    //console.say("Last record: " + JSON.stringify(testStoreResampled.recs[testStoreResampled.length-1]) + "\n");
 
     var trainRecId = testStoreResampled.getStreamAggr("delay").first;
-    console.say(JSON.stringify(testStoreResampled.getStreamAggr("delay")));
 
     if (trainRecId > 0) {
-      linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+      ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
 
-          // Debuging
-      console.say("Input for learing: " + JSON.stringify(testStoreResampled[trainRecId]) + "\n");
-      var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
-      trainVector.push(rec.Speed);
-      trainVector.print(); console.say("\n");
+      // to get parameters from model
+      // var model = ridgeRegression.getModel();
+      // model.print();
 
-      var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
-      outFile.writeLine(Xstr);
+      // var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
+      // trainVector.push(rec.Speed);
+      // trainVector.print(); console.say("\n");
 
-    } else (console.say("\n==============\nDid not learn\n=============="));
+      // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
+      // outFile.writeLine(Xstr);
+    }
 
     // check prediction
     var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
@@ -154,7 +158,7 @@ testStoreResampled.addTrigger({
     console.log("Total error: " + mean);
   }
 });
-outFile.flush();
+//outFile.flush();
 
 // Testing out
 var records = testStore.recs;
