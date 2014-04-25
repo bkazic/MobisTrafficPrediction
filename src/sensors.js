@@ -1,10 +1,12 @@
 var analytics = require('analytics');
 //import "functions.j
-var Service = {}; Service.Mobis = {};
+var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
-Service.Mobis.Evaluation = require('Service/Mobis/Evaluation/stat.js');
+Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
+Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
 console.say(Service.Mobis.Loop.about());
-console.say(Service.Mobis.Evaluation.about());
+console.say(Service.Mobis.Utils.Stat.about());
+console.say(Service.Mobis.Utils.Io.about());
 
 
 // Loading store for counter Nodes
@@ -84,14 +86,14 @@ testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
             { name: "Occupancy", interpolator: "previous" },
             { name: "Speed", interpolator: "previous" },
             { name: "TrafficStatus", interpolator: "previous" } ],
-  createStore: false, interval: 60*1000 });
+  createStore: false, interval: 300*1000 });
 
 // insert testStoreResampled store aggregates
 testStoreResampled.addStreamAggr({ name: "tick", type: "timeSeriesTick",
                                    timestamp: "DateTime", value: "Speed" });
-testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick", 
+testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick",
                                   emaType: "previous", interval: 2000*1000, initWindow: 600*1000 });
-testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick", 
+testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
                                   emaType: "previous", interval: 10000*1000, initWindow: 600*1000 });
 
 
@@ -112,8 +114,7 @@ var ftrSpace = analytics.newFeatureSpace([
 // initialize linear regression
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
-var sumError = 0;
-var mean = 0;
+var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 // Defines what
 testStoreResampled.addTrigger({
   onAdd: function (rec) {
@@ -122,25 +123,38 @@ testStoreResampled.addTrigger({
     testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
     var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+    testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
+    console.say("Input for prediction: " + JSON.stringify(rec) + "\n");
+    //console.say("Last record: " + JSON.stringify(testStoreResampled.recs[testStoreResampled.length-1]) + "\n");
 
-    var trainRecId = testStoreResampled.getStreamAggr("delay").last;
+    var trainRecId = testStoreResampled.getStreamAggr("delay").first;
+    console.say(JSON.stringify(testStoreResampled.getStreamAggr("delay")));
 
     if (trainRecId > 0) {
-      testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
       linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
-    }
+
+          // Debuging
+      console.say("Input for learing: " + JSON.stringify(testStoreResampled[trainRecId]) + "\n");
+      var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
+      trainVector.push(rec.Speed);
+      trainVector.print(); console.say("\n");
+
+      var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
+      outFile.writeLine(Xstr);
+
+    } else (console.say("\n==============\nDid not learn\n=============="));
 
     // check prediction
     var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
-    //console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+    console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
 
-    // doesent make sense, because at the start the error is to large
-    // if (testStoreResampled.length < 10) {return;}
-    // var mean = Service.Mobis.Evaluation.onlineMeanError(diff);
-    // console.log("Total error: " + mean);
+    //doesent make sense, because at the start the error is to large
+    if (testStoreResampled.length < 10) {return;}
+    var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+    console.log("Total error: " + mean);
   }
 });
-
+outFile.flush();
 
 // Testing out
 var records = testStore.recs;
@@ -158,5 +172,5 @@ for (var jj=0; jj<testStoreResampled.length; jj++) {
 }
 
 
-var meanErr = Service.Mobis.Evaluation.meanError(testStoreClean.recs, testStoreResampled.recs);
+var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
 console.say("Ajga! Mean error: " + meanErr);

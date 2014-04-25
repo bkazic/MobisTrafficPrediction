@@ -28,7 +28,6 @@ exports.meanError = function(testSet, compareSet) {
 	return meanError;
 };
 
-
 // About this module
 exports.about = function() {
 	var description = "Module with statistics functions for evaluation.";
