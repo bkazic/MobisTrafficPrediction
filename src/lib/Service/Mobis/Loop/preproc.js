@@ -2,7 +2,7 @@
 
 
 exports.addNoDuplicateValues = function(outStore, rec) {
-	var store = outStore; // Maybe I dont need this madafaka
+	var store = outStore;
 	var val = rec.toJSON();
 	var result = outStore.recs;
 

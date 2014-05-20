@@ -5,8 +5,17 @@ exports.printStr = function(vec) {
 	for (var ii=0; ii<vec.length-2; ii++) {
 		outStr += vec.at(ii).toString()+" ";
 	}
-	outStr += vec.at(vec.length-1);
+	outStr += vec.at(vec.length-1)+"";
 	return outStr;
+};
+
+exports.vecToStr = function(vec) {
+	var str = "\n[\n";
+	for (var rowN = 0; rowN < vec.length; rowN++) {
+		str += vec.at(rowN).toFixed(2) + "\n";
+	}
+	str += "]\n";
+	console.say(str);
 };
 
 exports.saveMat = function(X, fname) {

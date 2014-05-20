@@ -121,7 +121,7 @@ console.say(Service.Mobis.Utils.RidgeRegression.about());
 var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
 
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
-// Defines what
+
 testStoreResampled.addTrigger({
   onAdd: function (rec) {
     var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
@@ -166,14 +166,21 @@ for (var ii=0; ii<records.length; ii++) {
   var rec = records[ii];
   //console.say("Ori: " + JSON.stringify(rec));
   Service.Mobis.Loop.addNoDuplicateValues(testStoreClean, rec);
+  //Service.Mobis.Loop.cleanSpeedNoCars(testStoreClean, rec);
   //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
 
-//Just for testing
-for (var jj=0; jj<testStoreResampled.length; jj++) {
-  var rec = testStoreResampled.recs[jj];
-  //console.say(JSON.stringify(rec));
-}
+// //Just for testing
+// for (var jj=0; jj<testStoreClean.length; jj++) {
+//   var rec = testStoreClean.recs[jj];
+//   console.say(JSON.stringify(rec));
+// }
+
+// //Just for testing
+// for (var jj=0; jj<testStoreResampled.length; jj++) {
+//   var rec = testStoreResampled.recs[jj];
+//   console.say(JSON.stringify(rec));
+// }
 
 
 var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
