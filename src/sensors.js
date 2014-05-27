@@ -10,6 +10,7 @@ console.say(Service.Mobis.Loop.about());
 console.say(Service.Mobis.Utils.Stat.about());
 console.say(Service.Mobis.Utils.Io.about());
 
+//Test
 
 // Loading store for counter Nodes
 var filename_counters_n = "./sandbox/sensors/countersNodes.txt";
