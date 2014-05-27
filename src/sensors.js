@@ -82,9 +82,10 @@ testStoreClean.addTrigger({
 });
 
 // Calls function that adds missing values
-//testStoreClean.addTrigger({
-//    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean)
-//});
+var interval = 5 * 60; // timestamp specified in seconds
+testStoreClean.addTrigger({
+    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval)
+});
 
 //// This resample aggregator creates new resampled store
 //testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
@@ -213,5 +214,6 @@ http.onGet("getRawStore", function (req, resp) {
 http.onGet("getCleanedStore", function (req, resp) {
     var storeName = testStoreClean.name;
     var recs = qm.search({ "$from": storeName });
+    recs.sortByField("DateTime", 1);
     return jsonp(req, resp, recs);
 });

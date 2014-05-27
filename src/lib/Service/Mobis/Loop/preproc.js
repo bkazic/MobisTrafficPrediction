@@ -51,17 +51,59 @@ exports.makeCleanSpeedNoCars = function(outStore) {
 	return cleanSpeedNoCars;
 };
 
+//TODO: FIX! use buffer here
 // If there is no cars, set speed to speed limit
-//exports.makeAddMissingValues = function (outStore) {
-//    var store = outStore;
-//    function cleanSpeedNoCars(rec) {
-//        if (rec.NumOfCars === 0) {
-//            speed = rec.measuredBy.MaxSpeed;
-//            store.add({ $id: rec.$id, Speed: speed });
-//        }
-//    }
-//    return cleanSpeedNoCars;
-//};
+exports.makeAddMissingValues = function (outstore, addInterval) {
+    var store = outstore;
+    var interval = addInterval;
+    var addMissingValues = function (rec) {
+        if (rec.$id === 0) {
+            return; // skip - no previous records
+        }
+        var sorted = store.recs;
+        sorted.sortByField("DateTime", 1);
+        var prevRec = sorted[rec.$id - 1]; // previous record in datetime
+        // calculate the gap between the record being added and the previous one
+        var timeDiff = rec.DateTime.timestamp - prevRec.DateTime.timestamp;
+        // check if the gap is bigger than the interval at which values are supposed to be added
+        if (timeDiff > interval) {
+            var numMissing = parseInt(timeDiff / interval);
+            for (var ii = 0; ii < numMissing; ii++) {
+                var now = rec.DateTime; // current record time
+                now.sub((numMissing - ii) * interval, "second"); // time of the missing record
+
+                var val = prevRec.toJSON();
+                delete val.$id;
+                val.DateTime = now.string;
+                val.StringDateTime = now.string;
+                val.Missing= true;
+                store.add(val);
+
+
+                //// get predicted value
+                //var prediction = null;
+                //var predTime = now.sub(6, "min"); // @TODO hack must fix -
+                //var records = resampledStore.recs;
+                //records.filterByField("DateTime", now.string);
+                //if (typeof records != "undefined") {
+                //    if (records.length > 0) {
+                //        var target = records[0];
+                //        if (target.Prediction) {
+                //            prediction = target.Prediction;
+                //        }
+                //    }
+                //}
+                //if (prediction !== null) {
+                //    store.add({ DateTime: now.string, Speed: prediction, Missing: true }); // add missing record
+                //}
+                //else {
+                //    store.add({ DateTime: now.string, Missing: true }); // add missing recordP
+                //}
+            }
+        }
+    };
+    return addMissingValues;
+};
 
 // About this module
 exports.about = function() {
