@@ -170,6 +170,8 @@ for (var ii=0; ii<testStore.length; ii++) {
   //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
 
+//Test
+
 //Just for testing
 //for (var jj=0; jj<testStoreClean.length; jj++) {
 //  var rec = testStoreClean.recs[jj];
