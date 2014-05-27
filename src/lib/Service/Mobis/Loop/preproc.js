@@ -45,11 +45,23 @@ exports.makeCleanSpeedNoCars = function(outStore) {
 	function cleanSpeedNoCars(rec) {
 		if (rec.NumOfCars === 0) {
 			speed = rec.measuredBy.MaxSpeed;
-			store.add({$id:rec.$id, Speed:speed});
+			store.add({ $id: rec.$id, Speed: speed, TrafficStatus: 1 });
 		}
 	}
 	return cleanSpeedNoCars;
 };
+
+// If there is no cars, set speed to speed limit
+//exports.makeAddMissingValues = function (outStore) {
+//    var store = outStore;
+//    function cleanSpeedNoCars(rec) {
+//        if (rec.NumOfCars === 0) {
+//            speed = rec.measuredBy.MaxSpeed;
+//            store.add({ $id: rec.$id, Speed: speed });
+//        }
+//    }
+//    return cleanSpeedNoCars;
+//};
 
 // About this module
 exports.about = function() {

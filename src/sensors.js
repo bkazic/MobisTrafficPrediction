@@ -81,6 +81,11 @@ testStoreClean.addTrigger({
   onAdd : Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean)
 });
 
+// Calls function that adds missing values
+//testStoreClean.addTrigger({
+//    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean)
+//});
+
 //// This resample aggregator creates new resampled store
 //testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
 //  outStore: testStoreResampled.name, timestamp: "DateTime",
@@ -169,8 +174,6 @@ for (var ii=0; ii<testStore.length; ii++) {
   //Service.Mobis.Loop.cleanSpeedNoCars(testStoreClean, rec);
   //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
-
-//Test
 
 //Just for testing
 //for (var jj=0; jj<testStoreClean.length; jj++) {
