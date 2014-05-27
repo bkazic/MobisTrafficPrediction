@@ -1,27 +1,42 @@
 // Module for Loop counters preprocessing
 
 
-exports.addNoDuplicateValues = function(outStore, rec) {
-	var store = outStore;
-	var val = rec.toJSON();
-	var result = outStore.recs;
+//exports.addNoDuplicateValues = function(outStore, rec) {
+//	var store = outStore;
+//	var val = rec.toJSON();
+//	var result = outStore.recs;
 
-	result.filterByField("DateTime", rec.DateTime.string);
-	if(typeof result != 'undefined') {
-		if(result.hasOwnProperty("length")) { // checks if object has the specified property
-			if(result.length > 0) {
-				return; // do not add
-			}
-		}
-	}
+//	result.filterByField("DateTime", rec.DateTime.string);
+//	if(typeof result != 'undefined') {
+//		if(result.hasOwnProperty("length")) { // checks if object has the specified property
+//			if(result.length > 0) {
+//				return; // do not add
+//			}
+//		}
+//	}
 
-	delete val.$id; // when adding to QMiner, $id must not exist
-	// add the join fields (different syntax)
-	store.joins.forEach(function(join) {
-		val[join] = {$id: rec[join].$id};
-	});
-	// add value
-	store.add(val);
+//	delete val.$id; // when adding to QMiner, $id must not exist
+//	// add the join fields (different syntax)
+//	store.joins.forEach(function(join) {
+//		val[join] = {$id: rec[join].$id};
+//	});
+//	// add value
+//	store.add(val);
+//};
+
+exports.addNoDuplicateValues = function (outStore, rec) {
+    var store = outStore;
+    var val = rec.toJSON();
+
+    delete val.$id;
+    val.StringDateTime = rec.DateTime.string;
+
+    //add joins
+    store.joins.forEach(function (join) {
+        val[join] = { $id: rec[join].$id };
+    });
+
+    store.add(val);
 };
 
 // If there is no cars, set speed to speed limit

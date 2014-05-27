@@ -22,7 +22,7 @@ var measurementStoresDef = function (storeName, extraFields) {
    storeDef = [{
        "name" : storeName,
        "fields" : [
-            { "name" : "DateTime", "type" : "datetime" },
+            { "name": "DateTime", "type": "datetime" },
             { "name" : "NumOfCars", "type" : "float", "null" : true },
             { "name" : "Gap", "type" : "float", "null" : true },
             { "name" : "Occupancy", "type" : "float", "null" : true },
@@ -54,7 +54,7 @@ for (var i=0; i<fileListMeasures.length; i++) {
 
   // Creating Store for measurements
   measurementStoresDef(storeName);
-  measurementStoresDef(storeNameClean);
+  measurementStoresDef(storeNameClean, [{ "name": "StringDateTime", "type": "string", "primary": true }]);
   measurementStoresDef(storeNameResampled, [{ "name" : "Ema1", "type" : "float", "null" : true },
                                             { "name" : "Ema2", "type" : "float", "null" : true },
                                             { "name" : "Prediction", "type" : "float", "null" : true}]);
@@ -81,15 +81,15 @@ testStoreClean.addTrigger({
   onAdd : Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean)
 });
 
-// This resample aggregator creates new resampled store
-testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
-  outStore: testStoreResampled.name, timestamp: "DateTime",
-  fields: [ { name: "NumOfCars", interpolator: "previous" },
-            { name: "Gap", interpolator: "previous" },
-            { name: "Occupancy", interpolator: "previous" },
-            { name: "Speed", interpolator: "previous" },
-            { name: "TrafficStatus", interpolator: "previous" } ],
-  createStore: false, interval: 300*1000 });
+//// This resample aggregator creates new resampled store
+//testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
+//  outStore: testStoreResampled.name, timestamp: "DateTime",
+//  fields: [ { name: "NumOfCars", interpolator: "previous" },
+//            { name: "Gap", interpolator: "previous" },
+//            { name: "Occupancy", interpolator: "previous" },
+//            { name: "Speed", interpolator: "previous" },
+//            { name: "TrafficStatus", interpolator: "previous" } ],
+//  createStore: false, interval: 300*1000 });
 
 // insert testStoreResampled store aggregates
 testStoreResampled.addStreamAggr({ name: "tick", type: "timeSeriesTick",
@@ -162,20 +162,35 @@ testStoreResampled.addTrigger({
 //outFile.flush();
 
 // Testing out
-var records = testStore.recs;
-for (var ii=0; ii<records.length; ii++) {
-  var rec = records[ii];
+for (var ii=0; ii<testStore.length; ii++) {
+  var rec = testStore.recs[ii];
   //console.say("Ori: " + JSON.stringify(rec));
   Service.Mobis.Loop.addNoDuplicateValues(testStoreClean, rec);
   //Service.Mobis.Loop.cleanSpeedNoCars(testStoreClean, rec);
   //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
 
-// //Just for testing
-// for (var jj=0; jj<testStoreClean.length; jj++) {
-//   var rec = testStoreClean.recs[jj];
-//   console.say(JSON.stringify(rec));
-// }
+////Just for testing
+//for (var jj = 0; jj < testStore.length; jj++) {
+//    var rec = testStore.recs[jj];
+//    var val = rec.toJSON();
+
+//    delete val.$id;
+//    val.StringDateTime = rec.DateTime.string;
+
+//    //add joins
+//    testStoreClean.joins.forEach(function (join) {
+//        val[join] = { $id: rec[join].$id };
+//    });
+
+//    testStoreClean.add(val);
+//}
+
+//Just for testing
+//for (var jj=0; jj<testStoreClean.length; jj++) {
+//  var rec = testStoreClean.recs[jj];
+//  console.say(JSON.stringify(rec));
+//}
 
 // //Just for testing
 // for (var jj=0; jj<testStoreResampled.length; jj++) {
@@ -186,3 +201,28 @@ for (var ii=0; ii<records.length; ii++) {
 
 var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
 console.say("Ajga! Mean error: " + meanErr);
+
+
+// ONLINE SERVICES
+
+//http://localhost:8080/sensors/query?data={"$from":"SensorMeasurement"}
+http.onGet("query", function (req, resp) {
+    jsonData = JSON.parse(req.args.data);
+    console.say("" + JSON.stringify(jsonData));
+    var recs = qm.search(jsonData);
+    return jsonp(req, resp, recs);
+});
+
+//http://localhost:8080/sensors/getRawStore
+http.onGet("getRawStore", function (req, resp) {
+    var storeName = testStore.name;
+    var recs = qm.search({ "$from": storeName });
+    return jsonp(req, resp, recs);
+});
+
+//http://localhost:8080/sensors/getCleanedStore
+http.onGet("getCleanedStore", function (req, resp) {
+    var storeName = testStoreClean.name;
+    var recs = qm.search({ "$from": storeName });
+    return jsonp(req, resp, recs);
+});
