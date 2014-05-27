@@ -170,22 +170,6 @@ for (var ii=0; ii<testStore.length; ii++) {
   //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
 
-////Just for testing
-//for (var jj = 0; jj < testStore.length; jj++) {
-//    var rec = testStore.recs[jj];
-//    var val = rec.toJSON();
-
-//    delete val.$id;
-//    val.StringDateTime = rec.DateTime.string;
-
-//    //add joins
-//    testStoreClean.joins.forEach(function (join) {
-//        val[join] = { $id: rec[join].$id };
-//    });
-
-//    testStoreClean.add(val);
-//}
-
 //Just for testing
 //for (var jj=0; jj<testStoreClean.length; jj++) {
 //  var rec = testStoreClean.recs[jj];
