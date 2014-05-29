@@ -1,5 +1,5 @@
 // Module for Loop counters preprocessing
-
+tm = require('time');
 
 //exports.addNoDuplicateValues = function(outStore, rec) {
 //	var store = outStore;
@@ -40,15 +40,15 @@ exports.addNoDuplicateValues = function (outStore, rec) {
 };
 
 // If there is no cars, set speed to speed limit
-exports.makeCleanSpeedNoCars = function(outStore) {
-	var store = outStore;
-	function cleanSpeedNoCars(rec) {
-		if (rec.NumOfCars === 0) {
-			speed = rec.measuredBy.MaxSpeed;
-			store.add({ $id: rec.$id, Speed: speed, TrafficStatus: 1 });
-		}
-	}
-	return cleanSpeedNoCars;
+exports.makeCleanSpeedNoCars = function (outStore) {
+    var store = outStore;
+    function cleanSpeedNoCars(rec) {
+        if (rec.NumOfCars === 0) {
+            speed = rec.measuredBy.MaxSpeed;
+            store.add({ $id: rec.$id, Speed: speed, TrafficStatus: 1 });
+        }
+    }
+    return cleanSpeedNoCars;
 };
 
 //// If there is no cars, set speed to speed limit
@@ -105,6 +105,7 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
         var sorted = inStore.recs;
         sorted.sortByField("DateTime", 1);
         var prevRec = sorted[rec.$id - 1]; // previous record in datetime
+
         // calculate the gap between the record being added and the previous one
         var timeDiff = rec.DateTime.timestamp - prevRec.DateTime.timestamp;
         // check if the gap is bigger than the interval at which values are supposed to be added
@@ -115,13 +116,26 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
                 now.sub(ii * interval, "second"); // time of the missing record
 
                 //TODO: Find rec from some time ago and replace wiht it, instead of prev val
+                var targetVal = prevRec.toJSON(); // Just in case, if it doesent find the real target
+                var targetTime = tm.parse(now.string);
+                targetTime.sub(1, "hour"); // specify target time
 
-                var prevVal = prevRec.toJSON();
-                delete prevVal.$id;
-                prevVal.DateTime = now.string;
-                prevVal.StringDateTime = now.string;
-                prevVal.Missing = true;
-                outStore.add(prevVal);
+                sorted.filterByField("DateTime", targetTime.string);
+                if (sorted) {
+                    var targetRec = sorted[0];
+                    targetVal = targetRec.toJSON();
+                }
+
+                delete targetVal.$id;
+                targetVal.DateTime = now.string;
+                targetVal.StringDateTime = now.string;
+                targetVal.Missing = true;
+                store.joins.forEach(function (join) {
+                    val[join] = { $id: targetRec[join].$id };
+                });
+                outStore.add(targetVal);
+
+                
 
 
                 //// get predicted value
@@ -151,7 +165,7 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
 };
 
 // About this module
-exports.about = function() {
-	var description = "This module contains functions for prreprocessing counter loop sensors.";
-	return description;
+exports.about = function () {
+    var description = "This module contains functions for prreprocessing counter loop sensors.";
+    return description;
 };
