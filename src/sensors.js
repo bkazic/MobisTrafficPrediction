@@ -50,11 +50,14 @@ for (var i=0; i<fileListMeasures.length; i++) {
   // Creating name for stores
   var storeName = "CounterMeasurement"+measurementIds[i];
   var storeNameClean = storeName + "_Cleaned";
+  var storeNameClean2 = storeName + "_Cleaned2";
   var storeNameResampled = storeName + "_Resampled";
 
   // Creating Store for measurements
   measurementStoresDef(storeName);
   measurementStoresDef(storeNameClean, [{ "name": "StringDateTime", "type": "string", "primary": true }]);
+  measurementStoresDef(storeNameClean2, [{ "name": "StringDateTime", "type": "string", "primary": true },
+                                         { "name": "Missing", "type": "bool", "null": true }]);
   measurementStoresDef(storeNameResampled, [{ "name" : "Ema1", "type" : "float", "null" : true },
                                             { "name" : "Ema2", "type" : "float", "null" : true },
                                             { "name" : "Prediction", "type" : "float", "null" : true}]);
@@ -69,7 +72,8 @@ for (var i=0; i<fileListMeasures.length; i++) {
 // Open the first two stores
 var testStore = qm.store(qm.getStoreList()[1].storeName);
 var testStoreClean = qm.store(qm.getStoreList()[2].storeName);
-var testStoreResampled = qm.store(qm.getStoreList()[3].storeName);
+var testStoreClean2 = qm.store(qm.getStoreList()[3].storeName);
+var testStoreResampled = qm.store(qm.getStoreList()[4].storeName);
 
 // Here addNoDuplicateValues should be added later
 // testStore.addTrigger({
@@ -84,7 +88,7 @@ testStoreClean.addTrigger({
 // Calls function that adds missing values
 var interval = 5 * 60; // timestamp specified in seconds
 testStoreClean.addTrigger({
-    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval)
+    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2)
 });
 
 //// This resample aggregator creates new resampled store
@@ -196,6 +200,7 @@ console.say("Ajga! Mean error: " + meanErr);
 // ONLINE SERVICES
 
 //http://localhost:8080/sensors/query?data={"$from":"SensorMeasurement"}
+//http://localhost:8080/sensors/query?data={"$from":"CounterMeasurement_0016_21_Cleaned","$sort":{"DateTime":1}}
 http.onGet("query", function (req, resp) {
     jsonData = JSON.parse(req.args.data);
     console.say("" + JSON.stringify(jsonData));
@@ -203,17 +208,17 @@ http.onGet("query", function (req, resp) {
     return jsonp(req, resp, recs);
 });
 
-//http://localhost:8080/sensors/getRawStore
-http.onGet("getRawStore", function (req, resp) {
-    var storeName = testStore.name;
-    var recs = qm.search({ "$from": storeName });
-    return jsonp(req, resp, recs);
-});
+////http://localhost:8080/sensors/getRawStore
+//http.onGet("getRawStore", function (req, resp) {
+//    var storeName = testStore.name;
+//    var recs = qm.search({ "$from": storeName });
+//    return jsonp(req, resp, recs);
+//});
 
-//http://localhost:8080/sensors/getCleanedStore
-http.onGet("getCleanedStore", function (req, resp) {
-    var storeName = testStoreClean.name;
-    var recs = qm.search({ "$from": storeName });
-    recs.sortByField("DateTime", 1);
-    return jsonp(req, resp, recs);
-});
+////http://localhost:8080/sensors/getCleanedStore
+//http.onGet("getCleanedStore", function (req, resp) {
+//    var storeName = testStoreClean.name;
+//    var recs = qm.search({ "$from": storeName });
+//    recs.sortByField("DateTime", 1);
+//    return jsonp(req, resp, recs);
+//});
