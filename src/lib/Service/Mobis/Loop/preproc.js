@@ -51,7 +51,6 @@ exports.makeCleanSpeedNoCars = function(outStore) {
 	return cleanSpeedNoCars;
 };
 
-//TODO: FIX! use buffer here
 // If there is no cars, set speed to speed limit
 exports.makeAddMissingValues = function (outstore, addInterval) {
     var store = outstore;
@@ -71,6 +70,8 @@ exports.makeAddMissingValues = function (outstore, addInterval) {
             for (var ii = 0; ii < numMissing; ii++) {
                 var now = rec.DateTime; // current record time
                 now.sub((numMissing - ii) * interval, "second"); // time of the missing record
+
+                //TODO: Find rec from some time ago and replace wiht it, instead of prev val
 
                 var val = prevRec.toJSON();
                 delete val.$id;
