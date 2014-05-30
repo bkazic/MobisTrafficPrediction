@@ -85,7 +85,7 @@ exports.makeCleanSpeedNoCars = function (outStore) {
 //};
 
 // If there is no cars, set speed to speed limit
-exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
+exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, valsBack, unit) {
     var inStore = inputStore;
     var interval = addInterval;
     var outStore = outputStore;
@@ -119,21 +119,28 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
                 now.sub(ii * interval, "second"); // time of the missing record
 
                 // initialize target rec
-                var targetVal = prevRec.toJSON(); // Just in case, if it doesent find the real target
-                var targetTime = tm.parse(now.string);
-                targetTime.sub(1, "hour"); // specify target time
+                var targetRec = prevRec;
+                var targetVal = targetRec.toJSON();
 
-                // find rec
-                sorted.filterByField("DateTime", targetTime.string);
-                if (sorted) {
-                    var targetRec = sorted[0];
-                    targetVal = targetRec.toJSON();
+                // if parameters are not initialized target val will be prev val
+                if (valsBack && unit) { // checks if parameters are initialized
+                    var targetTime = tm.parse(now.string);
+                    // targetTime.sub(1, "hour"); // specify target time
+                    targetTime.sub(valsBack, unit); // specify target time
+
+                    // find rec
+                    sorted.filterByField("DateTime", targetTime.string);
+                    if (sorted) {
+                        targetRec = sorted[0];
+                        targetVal = targetRec.toJSON();
+                    }
                 }
 
                 // add val
                 delete targetVal.$id;
                 targetVal.DateTime = now.string;
                 targetVal.StringDateTime = now.string;
+                targetVal.TargetDateTime = targetRec.DateTime.string;
                 targetVal.Missing = true;
                 store.joins.forEach(function (join) { // add joins
                     val[join] = { $id: targetRec[join].$id };

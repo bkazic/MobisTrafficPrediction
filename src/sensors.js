@@ -57,6 +57,7 @@ for (var i=0; i<fileListMeasures.length; i++) {
   measurementStoresDef(storeName);
   measurementStoresDef(storeNameClean, [{ "name": "StringDateTime", "type": "string", "primary": true }]);
   measurementStoresDef(storeNameClean2, [{ "name": "StringDateTime", "type": "string", "primary": true },
+                                         { "name": "TargetDateTime", "type": "string", "null": true },
                                          { "name": "Missing", "type": "bool", "null": true }]);
   measurementStoresDef(storeNameResampled, [{ "name" : "Ema1", "type" : "float", "null" : true },
                                             { "name" : "Ema2", "type" : "float", "null" : true },
@@ -88,7 +89,7 @@ testStoreClean.addTrigger({
 // Calls function that adds missing values
 var interval = 5 * 60; // timestamp specified in seconds
 testStoreClean.addTrigger({
-    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2)
+    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "day")
 });
 
 //// This resample aggregator creates new resampled store
