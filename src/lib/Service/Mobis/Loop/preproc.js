@@ -91,23 +91,26 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
     var outStore = outputStore;
 
     var addMissingValues = function (rec) {
+
         //create json rec
-        var val = rec.toJSON();
+        var val = rec.toJSON(); 
         delete val.$id;
         store.joins.forEach(function (join) {
             val[join] = { $id: rec[join].$id };
         });
 
+        // skip - no previous records
         if (rec.$id === 0) {
             outStore.add(val);
-            return; // skip - no previous records
+            return; 
         }
-        var sorted = inStore.recs;
-        sorted.sortByField("DateTime", 1);
-        var prevRec = sorted[rec.$id - 1]; // previous record in datetime
 
         // calculate the gap between the record being added and the previous one
+        var sorted = inStore.recs;
+        sorted.sortByField("DateTime", 1);
+        var prevRec = sorted[rec.$id - 1]; // previous record in datetime 
         var timeDiff = rec.DateTime.timestamp - prevRec.DateTime.timestamp;
+
         // check if the gap is bigger than the interval at which values are supposed to be added
         if (timeDiff > interval) {
             var numMissing = parseInt(timeDiff / interval) - 1;
@@ -115,28 +118,27 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore) {
                 var now = rec.DateTime; // current record time
                 now.sub(ii * interval, "second"); // time of the missing record
 
-                //TODO: Find rec from some time ago and replace wiht it, instead of prev val
+                // initialize target rec
                 var targetVal = prevRec.toJSON(); // Just in case, if it doesent find the real target
                 var targetTime = tm.parse(now.string);
                 targetTime.sub(1, "hour"); // specify target time
 
+                // find rec
                 sorted.filterByField("DateTime", targetTime.string);
                 if (sorted) {
                     var targetRec = sorted[0];
                     targetVal = targetRec.toJSON();
                 }
 
+                // add val
                 delete targetVal.$id;
                 targetVal.DateTime = now.string;
                 targetVal.StringDateTime = now.string;
                 targetVal.Missing = true;
-                store.joins.forEach(function (join) {
+                store.joins.forEach(function (join) { // add joins
                     val[join] = { $id: targetRec[join].$id };
                 });
                 outStore.add(targetVal);
-
-                
-
 
                 //// get predicted value
                 //var prediction = null;
