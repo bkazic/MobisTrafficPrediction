@@ -206,14 +206,14 @@ http.onGet("query", function (req, resp) {
     jsonData = JSON.parse(req.args.data);
     console.say("" + JSON.stringify(jsonData));
     var recs = qm.search(jsonData);
-    return jsonp(req, resp, recs);
+    return http.jsonp(req, resp, recs);
 });
 
 ////http://localhost:8080/sensors/getRawStore
 //http.onGet("getRawStore", function (req, resp) {
 //    var storeName = testStore.name;
 //    var recs = qm.search({ "$from": storeName });
-//    return jsonp(req, resp, recs);
+//    return http.jsonp(req, resp, recs);
 //});
 
 ////http://localhost:8080/sensors/getCleanedStore
@@ -221,5 +221,5 @@ http.onGet("query", function (req, resp) {
 //    var storeName = testStoreClean.name;
 //    var recs = qm.search({ "$from": storeName });
 //    recs.sortByField("DateTime", 1);
-//    return jsonp(req, resp, recs);
+//    return http.jsonp(req, resp, recs);
 //});

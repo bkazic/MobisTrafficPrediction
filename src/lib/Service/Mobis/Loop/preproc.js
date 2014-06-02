@@ -26,15 +26,21 @@ tm = require('time');
 
 exports.addNoDuplicateValues = function (outStore, rec) {
     var store = outStore;
-    var val = rec.toJSON();
+
+    
+
+    var val = rec.toJSON(true);
+    //console.say(JSON.stringify(val));
+    //var test = store.newRec(val);
+    //console.startx(function (x) { return eval(x); })
 
     delete val.$id;
     val.StringDateTime = rec.DateTime.string;
 
-    //add joins
-    store.joins.forEach(function (join) {
-        val[join] = { $id: rec[join].$id };
-    });
+    ////add joins
+    //store.joins.forEach(function (join) {
+    //    val[join] = { $id: rec[join].$id };
+    //});
 
     store.add(val);
 };
@@ -93,11 +99,11 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, v
     var addMissingValues = function (rec) {
 
         //create json rec
-        var val = rec.toJSON(); 
+        var val = rec.toJSON(true); 
         delete val.$id;
-        store.joins.forEach(function (join) {
-            val[join] = { $id: rec[join].$id };
-        });
+        //store.joins.forEach(function (join) {
+        //    val[join] = { $id: rec[join].$id };
+        //});
 
         // skip - no previous records
         if (rec.$id === 0) {
@@ -115,12 +121,13 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, v
         if (timeDiff > interval) {
             var numMissing = parseInt(timeDiff / interval) - 1;
             for (var ii = numMissing; ii > 0; ii--) {
+                var recs = inStore.recs;
                 var now = rec.DateTime; // current record time
                 now.sub(ii * interval, "second"); // time of the missing record
 
                 // initialize target rec
                 var targetRec = prevRec;
-                var targetVal = targetRec.toJSON();
+                var targetVal = targetRec.toJSON(true);
 
                 // if parameters are not initialized target val will be prev val
                 if (valsBack && unit) { // checks if parameters are initialized
@@ -129,10 +136,11 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, v
                     targetTime.sub(valsBack, unit); // specify target time
 
                     // find rec
-                    sorted.filterByField("DateTime", targetTime.string);
-                    if (sorted) {
-                        targetRec = sorted[0];
-                        targetVal = targetRec.toJSON();
+                    recs.filterByField("DateTime", targetTime.string, targetTime.string); // BUG in filterByField??
+                    //console.startx(function (x) { return eval(x); })
+                    if (recs.length) {
+                        targetRec = recs[0];
+                        targetVal = targetRec.toJSON(true);
                     }
                 }
 
@@ -142,9 +150,6 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, v
                 targetVal.StringDateTime = now.string;
                 targetVal.TargetDateTime = targetRec.DateTime.string;
                 targetVal.Missing = true;
-                store.joins.forEach(function (join) { // add joins
-                    val[join] = { $id: targetRec[join].$id };
-                });
                 outStore.add(targetVal);
 
                 //// get predicted value
