@@ -92,27 +92,29 @@ testStoreClean.addTrigger({
     onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "day")
 });
 
-//// This resample aggregator creates new resampled store
-//testStoreClean.addStreamAggr({ name: "Resample1min", type: "resampler",
-//  outStore: testStoreResampled.name, timestamp: "DateTime",
-//  fields: [ { name: "NumOfCars", interpolator: "previous" },
-//            { name: "Gap", interpolator: "previous" },
-//            { name: "Occupancy", interpolator: "previous" },
-//            { name: "Speed", interpolator: "previous" },
-//            { name: "TrafficStatus", interpolator: "previous" } ],
-//  createStore: false, interval: 300*1000 });
+// This resample aggregator creates new resampled store
+testStoreClean2.addStreamAggr({
+    name: "Resample1min", type: "resampler",
+    outStore: testStoreResampled.name, timestamp: "DateTime",
+    fields: [{ name: "NumOfCars", interpolator: "previous" },
+              { name: "Gap", interpolator: "previous" },
+              { name: "Occupancy", interpolator: "previous" },
+              { name: "Speed", interpolator: "previous" },
+              { name: "TrafficStatus", interpolator: "previous" }],
+    createStore: false, interval: 10 * 60 * 1000
+});
 
 // insert testStoreResampled store aggregates
 testStoreResampled.addStreamAggr({ name: "tick", type: "timeSeriesTick",
                                    timestamp: "DateTime", value: "Speed" });
 testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick",
-                                  emaType: "previous", interval: 2000*1000, initWindow: 600*1000 });
+                                  emaType: "previous", interval: 30*60*1000, initWindow: 600*1000 });
 testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
-                                  emaType: "previous", interval: 10000*1000, initWindow: 600*1000 });
+                                  emaType: "previous", interval: 120*60*1000, initWindow: 600*1000 });
 
 
 // Buffer defines for how many records infront prediction will be learned
-testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 6});
+testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2});
 
 
 // Define feature space
@@ -146,8 +148,9 @@ testStoreResampled.addTrigger({
     var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
     if (trainRecId > 0) {
-      ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
-
+        ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+        //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
+        //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
       // to get parameters from model
       // var model = ridgeRegression.getModel();
       // model.print();
