@@ -125,7 +125,7 @@ testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
 testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
 
 // Buffer for historical features
-var histVals = 0;
+var histVals = 3;
 var histValName = [];
 for (var jj = 0; jj < histVals; jj++) {
     histValName[jj] = "HistVal" + (jj + 1);
