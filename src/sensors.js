@@ -19,24 +19,24 @@ qm.load.jsonFile(CounterNode, filename_counters_n);
 
 // Define measurement store definition as a function so that it can be used several times 
 var measurementStoresDef = function (storeName, extraFields) {
-   storeDef = [{
-       "name" : storeName,
-       "fields" : [
-            { "name": "DateTime", "type": "datetime" },
-            { "name" : "NumOfCars", "type" : "float", "null" : true },
-            { "name" : "Gap", "type" : "float", "null" : true },
-            { "name" : "Occupancy", "type" : "float", "null" : true },
-            { "name" : "Speed", "type" : "float", "null" : true },
-            { "name" : "TrafficStatus", "type" : "float", "null" : true }
+    storeDef = [{
+        "name": storeName,
+        "fields": [
+             { "name": "DateTime", "type": "datetime" },
+             { "name": "NumOfCars", "type": "float", "null": true },
+             { "name": "Gap", "type": "float", "null": true },
+             { "name": "Occupancy", "type": "float", "null": true },
+             { "name": "Speed", "type": "float", "null": true },
+             { "name": "TrafficStatus", "type": "float", "null": true }
         ],
-        "joins" : [
-            { "name" : "measuredBy", "type" : "field", "store" : "CounterNode" }
+        "joins": [
+            { "name": "measuredBy", "type": "field", "store": "CounterNode" }
         ]
-  }];
-  if(extraFields) {
-    storeDef[0].fields = storeDef[0].fields.concat(extraFields);
-  }
-  qm.createStore(storeDef);
+    }];
+    if (extraFields) {
+        storeDef[0].fields = storeDef[0].fields.concat(extraFields);
+    }
+    qm.createStore(storeDef);
 };
 
 // Find measurement files
@@ -46,28 +46,37 @@ var fileListMeasures = fileList.filter( function(element) {return element.indexO
 var measurementIds = fileListMeasures.map( function(element) {return element.substring(element.length-12,element.length-4);}); // Extract IDs from file names
 
 // Load measurement files to stores
-for (var i=0; i<fileListMeasures.length; i++) {
-  // Creating name for stores
-  var storeName = "CounterMeasurement"+measurementIds[i];
-  var storeNameClean = storeName + "_Cleaned";
-  var storeNameClean2 = storeName + "_Cleaned2";
-  var storeNameResampled = storeName + "_Resampled";
+for (var i = 0; i < fileListMeasures.length; i++) {
+    // Creating name for stores
+    var storeName = "CounterMeasurement" + measurementIds[i];
+    var storeNameClean = storeName + "_Cleaned";
+    var storeNameClean2 = storeName + "_Cleaned2";
+    var storeNameResampled = storeName + "_Resampled";
 
-  // Creating Store for measurements
-  measurementStoresDef(storeName);
-  measurementStoresDef(storeNameClean, [{ "name": "StringDateTime", "type": "string", "primary": true }]);
-  measurementStoresDef(storeNameClean2, [{ "name": "StringDateTime", "type": "string", "primary": true },
-                                         { "name": "TargetDateTime", "type": "string", "null": true },
-                                         { "name": "Missing", "type": "bool", "null": true }]);
-  measurementStoresDef(storeNameResampled, [{ "name" : "Ema1", "type" : "float", "null" : true },
-                                            { "name" : "Ema2", "type" : "float", "null" : true },
-                                            { "name" : "Prediction", "type" : "float", "null" : true}]);
+    // Creating Store for measurements
+    measurementStoresDef(storeName);
+    measurementStoresDef(storeNameClean, [{ "name": "StringDateTime", "type": "string", "primary": true }]);
+    measurementStoresDef(storeNameClean2, [{ "name": "StringDateTime", "type": "string", "primary": true },
+                                           { "name": "TargetDateTime", "type": "string", "null": true },
+                                           { "name": "Missing", "type": "bool", "null": true }]);
+    //measurementStoresDef(storeNameResampled, [{ "name": "Ema1", "type": "float", "null": true },
+    //                                          { "name": "Ema2", "type": "float", "null": true },
+    //                                          { "name": "Prediction", "type": "float", "null": true }]);
+    //
 
-  // Load measurement files to created store
-  var store = qm.store(storeName);
-  qm.load.jsonFile(store, fileListMeasures[i]);
+    // adding fields for historical values
+    var extraFields = [{ "name": "Ema1", "type": "float", "null": true },
+                       { "name": "Ema2", "type": "float", "null": true },
+                       { "name": "Prediction", "type": "float", "null": true }]
+    for (var ii = 0; ii < 10; ii++) {
+        extraFields.push({ "name": "HistVal"+(ii+1), "type": "float", "null": true })
+    };
+    measurementStoresDef(storeNameResampled, extraFields);
+
+    // Load measurement files to created store
+    var store = qm.store(storeName);
+    qm.load.jsonFile(store, fileListMeasures[i]);
 }
-
 
 
 // Open the first two stores
@@ -112,20 +121,41 @@ testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick",
 testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
                                   emaType: "previous", interval: 120*60*1000, initWindow: 600*1000 });
 
-
 // Buffer defines for how many records infront prediction will be learned
-testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2});
+testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
+
+// Buffer for historical features
+var histVals = 0;
+var histValName = [];
+for (var jj = 0; jj < histVals; jj++) {
+    histValName[jj] = "HistVal" + (jj + 1);
+    testStoreResampled.addStreamAggr({ name: histValName[jj], type: "recordBuffer", size: jj + 2 });
+};
 
 
-// Define feature space
-var ftrSpace = analytics.newFeatureSpace([
+// feature extractors for feature space
+var featureExtractors = [
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
   { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
   { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
   { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
-]);
+]
 
+// add historical features
+for (var ii = 0; ii < histValName.length; ii++) {
+    featureExtractors.push({ type: "numeric", source: testStoreResampled.name, field: histValName[ii] });
+}
 
+// Define feature space
+var ftrSpace = analytics.newFeatureSpace(featureExtractors);
+
+//// Define feature space
+//var ftrSpace = analytics.newFeatureSpace([
+//  { type: "numeric", source: testStoreResampled.name, field: "Speed" },
+//  { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
+//  { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
+//  { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
+//]);
 
 // initialize linear regression
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
@@ -137,43 +167,63 @@ var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 
 testStoreResampled.addTrigger({
-  onAdd: function (rec) {
-    var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
-    var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
-    testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
+    onAdd: function (rec) {
+        var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
+        var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
+        testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
-      //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
-    var prediction = linreg.predict(ftrSpace.ftrVec(rec));
-    testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
+        //for (var ii = 0; ii < histValName.length; ii++) {
+        //    testStoreResampled.add({ $id: rec.$id, histVal[ii]: testStoreResampled.getStreamAggr(histVal).oldest.Speed });
+        //};
 
-    var trainRecId = testStoreResampled.getStreamAggr("delay").first;
+        // add historical features
+        histValName.forEach(function (histVal) {
+            rec[histVal] = testStoreResampled.getStreamAggr(histVal).oldest.Speed;
+            testStoreResampled.add({ $id: rec.$id });
+        });
 
-    if (trainRecId > 0) {
-        linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
-        //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
-        //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
-        //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
-      // to get parameters from model
-      // var model = ridgeRegression.getModel();
-      // model.print();
+        //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
 
-      // var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
-      // trainVector.push(rec.Speed);
-      // trainVector.print(); console.say("\n");
+        //var fVec = ftrSpace.ftrVec(rec);
+        //histValName.forEach(function (histVal) {
+        //    fVec.push(testStoreResampled.getStreamAggr(histVal).oldest.Speed);
+        //})
 
-      // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
-      // outFile.writeLine(Xstr);
+        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+        testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
+
+        var trainRecId = testStoreResampled.getStreamAggr("delay").first;
+
+        //console.startx(function (x) { return eval(x); })
+
+        if (trainRecId > 0) {
+            linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+            //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+
+            //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
+            //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
+
+            // to get parameters from model
+            // var model = ridgeRegression.getModel();
+            // model.print();
+
+            // var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
+            // trainVector.push(rec.Speed);
+            // trainVector.print(); console.say("\n");
+
+            // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
+            // outFile.writeLine(Xstr);
+        }
+
+        // check prediction
+        var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
+        console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+
+        //doesent make sense, because at the start the error is to large
+        if (testStoreResampled.length < 10) { return; }
+        var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+        console.log("Total error: " + mean);
     }
-
-    // check prediction
-    var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
-    console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
-
-    //doesent make sense, because at the start the error is to large
-    if (testStoreResampled.length < 10) {return;}
-    var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
-    console.log("Total error: " + mean);
-  }
 });
 //outFile.flush();
 
@@ -197,7 +247,6 @@ for (var ii=0; ii<testStore.length; ii++) {
 //   var rec = testStoreResampled.recs[jj];
 //   console.say(JSON.stringify(rec));
 // }
-
 
 var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
 console.say("Ajga! Mean error: " + meanErr);
