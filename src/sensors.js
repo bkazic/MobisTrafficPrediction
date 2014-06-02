@@ -128,11 +128,11 @@ var ftrSpace = analytics.newFeatureSpace([
 
 
 // initialize linear regression
-//var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
+var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
-console.say(Service.Mobis.Utils.RidgeRegression.about());
-var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
+//console.say(Service.Mobis.Utils.RidgeRegression.about());
+//var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
 
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 
@@ -142,13 +142,15 @@ testStoreResampled.addTrigger({
     var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
     testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
-    var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
+      //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
+    var prediction = linreg.predict(ftrSpace.ftrVec(rec));
     testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
 
     var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
     if (trainRecId > 0) {
-        ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+        linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+        //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
         //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
         //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
       // to get parameters from model
