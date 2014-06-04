@@ -1,5 +1,6 @@
 var analytics = require('analytics');
 var assert = require('assert.js');
+var tm = require('time')
 //import "functions.j
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegression.js');
@@ -67,7 +68,9 @@ for (var i = 0; i < fileListMeasures.length; i++) {
     // adding fields for historical values
     var extraFields = [{ "name": "Ema1", "type": "float", "null": true },
                        { "name": "Ema2", "type": "float", "null": true },
-                       { "name": "Prediction", "type": "float", "null": true }]
+                       { "name": "Prediction", "type": "float", "null": true },
+                       { "name": "PredictionDateTime", "type": "datetime", "null": true }
+    ]
     for (var ii = 0; ii < 10; ii++) {
         extraFields.push({ "name": "HistVal"+(ii+1), "type": "float", "null": true })
     };
@@ -164,6 +167,8 @@ var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
 //var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
 
+var onlineMean = new Service.Mobis.Utils.Stat.meanError();
+
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 
 testStoreResampled.addTrigger({
@@ -184,24 +189,26 @@ testStoreResampled.addTrigger({
 
         //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
 
-        //var fVec = ftrSpace.ftrVec(rec);
-        //histValName.forEach(function (histVal) {
-        //    fVec.push(testStoreResampled.getStreamAggr(histVal).oldest.Speed);
-        //})
-
-        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
-        testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
-
+        // training record
         var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
-        //console.startx(function (x) { return eval(x); })
-
+        // add prediction to sotre
+        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+        testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
+        
         if (trainRecId > 0) {
             linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
             //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
             //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
+
+            // add time of prediction
+            var predictionHorizon = rec.DateTime.timestamp - testStoreResampled[trainRecId].DateTime.timestamp;
+            var predictionForTime = tm.parse(rec.DateTime.string);
+            predictionForTime.add(predictionHorizon);
+            testStoreResampled.add({ $id: rec.$id, PredictionDateTime: predictionForTime.string });
+            //console.startx(function (x) { return eval(x); })
 
             // to get parameters from model
             // var model = ridgeRegression.getModel();
@@ -213,16 +220,16 @@ testStoreResampled.addTrigger({
 
             // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
             // outFile.writeLine(Xstr);
+
+            // check prediction
+            var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
+            console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+
+            //if (testStoreResampled.length < 10) { return; }
+            //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+            onlineMean.update(diff)
+            console.log("Total error: " + onlineMean.getMean());
         }
-
-        // check prediction
-        var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
-        console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
-
-        //doesent make sense, because at the start the error is to large
-        if (testStoreResampled.length < 10) { return; }
-        var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
-        console.log("Total error: " + mean);
     }
 });
 //outFile.flush();
@@ -248,8 +255,10 @@ for (var ii=0; ii<testStore.length; ii++) {
 //   console.say(JSON.stringify(rec));
 // }
 
-var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
-console.say("Ajga! Mean error: " + meanErr);
+//var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
+//var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreClean.recs, testStoreResampled.recs);
+var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreResampled, testStoreClean);
+console.say("Ajga parjato! Mean error: " + meanErr);
 
 
 // ONLINE SERVICES
