@@ -1,7 +1,10 @@
 var analytics = require('analytics');
 var assert = require('assert.js');
 var tm = require('time')
-//import "functions.j
+var utilities = require('utilities.js');
+
+sw = new utilities.clsStopwatch();
+
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegression.js');
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
@@ -102,6 +105,7 @@ testStoreClean.addTrigger({
 var interval = 5 * 60; // timestamp specified in seconds
 testStoreClean.addTrigger({
     onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "day")
+    //onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2)
 });
 
 // This resample aggregator creates new resampled store
@@ -169,17 +173,17 @@ var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
 var onlineMean = new Service.Mobis.Utils.Stat.meanError();
 
-//var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
+console.log("Starting timewatch...");
+sw.tic();
 
+//var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 testStoreResampled.addTrigger({
     onAdd: function (rec) {
         var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
         var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
         testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
 
-        //for (var ii = 0; ii < histValName.length; ii++) {
-        //    testStoreResampled.add({ $id: rec.$id, histVal[ii]: testStoreResampled.getStreamAggr(histVal).oldest.Speed });
-        //};
+        console.log("Working on rec: ", rec.DateTime.string);
 
         // add historical features
         histValName.forEach(function (histVal) {
@@ -227,6 +231,7 @@ testStoreResampled.addTrigger({
 
             //if (testStoreResampled.length < 10) { return; }
             //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+
             onlineMean.update(diff)
             console.log("Total error: " + onlineMean.getMean());
         }
@@ -259,7 +264,7 @@ for (var ii=0; ii<testStore.length; ii++) {
 //var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreClean.recs, testStoreResampled.recs);
 var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreResampled, testStoreClean);
 console.say("Ajga parjato! Mean error: " + meanErr);
-
+sw.toc("Time");
 
 // ONLINE SERVICES
 

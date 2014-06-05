@@ -113,7 +113,7 @@ exports.makeAddMissingValues = function (inputStore, addInterval, outputStore, v
 
         // calculate the gap between the record being added and the previous one
         var sorted = inStore.recs;
-        sorted.sortByField("DateTime", 1);
+        //sorted.sortByField("DateTime", 1); // takes too much time, I think I dont need it anymore with aditional store Cleaned2
         var prevRec = sorted[rec.$id - 1]; // previous record in datetime 
         var timeDiff = rec.DateTime.timestamp - prevRec.DateTime.timestamp;
 
