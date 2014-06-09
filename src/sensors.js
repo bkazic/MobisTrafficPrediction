@@ -140,7 +140,6 @@ for (var jj = 0; jj < histVals; jj++) {
     testStoreResampled.addStreamAggr({ name: histValName[jj], type: "recordBuffer", size: jj + 2 }); //if size is 2, this is the first hist val
 };
 
-
 // feature extractors for feature space
 var featureExtractors = [
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
@@ -157,16 +156,8 @@ for (var ii = 0; ii < histValName.length; ii++) {
 // Define feature space
 var ftrSpace = analytics.newFeatureSpace(featureExtractors);
 
-//// Define feature space
-//var ftrSpace = analytics.newFeatureSpace([
-//  { type: "numeric", source: testStoreResampled.name, field: "Speed" },
-//  { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
-//  { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
-//  { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
-//]);
-
 // initialize linear regression
-var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
+var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim+1, "forgetFact":1.0 });
 
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
@@ -197,12 +188,18 @@ testStoreResampled.addTrigger({
         // training record
         var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
-        // add prediction to sotre
-        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+        // make prediction and add to store
+        var ftrVector = ftrSpace.ftrVec(rec);
+        ftrVector.unshift(1); // hack: adds 1 to ftrVec. Should be done at FeatureExtractor
+        var prediction = linreg.predict(ftrVector);
+        //var prediction = linreg.predict(ftrSpace.ftrVec(rec));
         testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
         
         if (trainRecId > 0) {
-            linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+            var learnFtrVec = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
+            learnFtrVec.unshift(1);
+            linreg.learn(learnFtrVec, rec.Speed);
+            //linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
             //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
@@ -219,7 +216,7 @@ testStoreResampled.addTrigger({
             // var model = ridgeRegression.getModel();
             // model.print();
 
-            // var trainVector = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
+            // var trainVector = c
             // trainVector.push(rec.Speed);
             // trainVector.print(); console.say("\n");
 
