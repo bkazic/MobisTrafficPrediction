@@ -4,6 +4,7 @@ var tm = require('time')
 var utilities = require('utilities.js');
 
 sw = new utilities.clsStopwatch();
+sw2 = new utilities.clsStopwatch();
 
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegression.js');
@@ -135,8 +136,8 @@ testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 
 var histVals = 3;
 var histValName = [];
 for (var jj = 0; jj < histVals; jj++) {
-    histValName[jj] = "HistVal" + (jj + 1);
-    testStoreResampled.addStreamAggr({ name: histValName[jj], type: "recordBuffer", size: jj + 2 });
+    histValName[jj] = "HistVal" + (jj + 1); //name has to start with 1
+    testStoreResampled.addStreamAggr({ name: histValName[jj], type: "recordBuffer", size: jj + 2 }); //if size is 2, this is the first hist val
 };
 
 
@@ -170,11 +171,13 @@ var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
 //var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
+//var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim);
 
 var onlineMean = new Service.Mobis.Utils.Stat.meanError();
 
-console.log("Starting timewatch...");
 sw.tic();
+sw2.tic();
+var prevRecDay = null;
 
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 testStoreResampled.addTrigger({
@@ -182,8 +185,6 @@ testStoreResampled.addTrigger({
         var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
         var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
         testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
-
-        console.log("Working on rec: ", rec.DateTime.string);
 
         // add historical features
         histValName.forEach(function (histVal) {
@@ -224,16 +225,24 @@ testStoreResampled.addTrigger({
 
             // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
             // outFile.writeLine(Xstr);
-
-            // check prediction
             var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
-            console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
-
-            //if (testStoreResampled.length < 10) { return; }
-            //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
-
             onlineMean.update(diff)
-            console.log("Total error: " + onlineMean.getMean());
+
+            if (rec.DateTime.day != prevRecDay) {
+                sw2.toc("Leap time");
+                sw2.tic();
+                console.log("Working on rec: " + rec.DateTime.dateString);
+                // check prediction
+                
+                //console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+
+                //if (testStoreResampled.length < 10) { return; }
+                //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+
+                console.log("Total error: " + onlineMean.getMean() + "\n");
+                // set new prevRecDay
+                prevRecDay = rec.DateTime.day;
+            }
         }
     }
 });
@@ -242,28 +251,14 @@ testStoreResampled.addTrigger({
 // Testing out
 for (var ii=0; ii<testStore.length; ii++) {
   var rec = testStore.recs[ii];
-  //console.say("Ori: " + JSON.stringify(rec));
   Service.Mobis.Loop.addNoDuplicateValues(testStoreClean, rec);
-  //Service.Mobis.Loop.cleanSpeedNoCars(testStoreClean, rec);
-  //console.say("New: " + JSON.stringify(testStoreClean.recs[testStoreClean.length-1]));
 }
-
-//Just for testing
-//for (var jj=0; jj<testStoreClean.length; jj++) {
-//  var rec = testStoreClean.recs[jj];
-//  console.say(JSON.stringify(rec));
-//}
-
-// //Just for testing
-// for (var jj=0; jj<testStoreResampled.length; jj++) {
-//   var rec = testStoreResampled.recs[jj];
-//   console.say(JSON.stringify(rec));
-// }
 
 //var meanErr = Service.Mobis.Utils.Stat.meanError(testStoreClean.recs, testStoreResampled.recs);
 //var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreClean.recs, testStoreResampled.recs);
+console.log("Calculating real mean error...");
 var meanErr = Service.Mobis.Utils.Stat.validateSpeedPrediction(testStoreResampled, testStoreClean);
-console.say("Ajga parjato! Mean error: " + meanErr);
+console.log("Ajga parjato! Mean error: " + meanErr);
 sw.toc("Time");
 
 // ONLINE SERVICES

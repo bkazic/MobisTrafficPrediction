@@ -82,7 +82,8 @@ exports.validateSpeedPrediction = function (testStore, compareStore) {
         var comparable = compareStore.recs;
         comparable.filterByField("DateTime", rec.PredictionDateTime.string, rec.PredictionDateTime.string);
         if (!comparable) { notValid++; console.log("ups"); continue; }
-        if (comparable.length === 0) { notValid++; console.log("didnt find: " + rec.PredictionDateTime.string); continue; }
+        //if (comparable.length === 0) { notValid++; console.log("didnt find: " + rec.PredictionDateTime.string); continue; }
+        if (comparable.length === 0) { notValid++; continue; }
         var speed = comparable[0].Speed;
         var diff = Math.round(Math.abs(rec.Prediction - speed) * 1000) / 1000;
         meanError.update(diff);
