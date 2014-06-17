@@ -11,11 +11,18 @@ Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegressi
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
 Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
+//Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/featureExtractor.js');
 console.say(Service.Mobis.Loop.about());
 console.say(Service.Mobis.Utils.Stat.about());
 console.say(Service.Mobis.Utils.Io.about());
+//console.say(Service.Mobis.Utils.Ftr.about());
 
 //Test
+// Constructor for special days feature extractor
+// slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Slovenian_holidays");
+//slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
+// fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Full_moon");
+//fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
 
 // Loading store for counter Nodes
 var filename_counters_n = "./sandbox/sensors/countersNodes.txt";
@@ -73,7 +80,10 @@ for (var i = 0; i < fileListMeasures.length; i++) {
     var extraFields = [{ "name": "Ema1", "type": "float", "null": true },
                        { "name": "Ema2", "type": "float", "null": true },
                        { "name": "Prediction", "type": "float", "null": true },
-                       { "name": "PredictionDateTime", "type": "datetime", "null": true }
+                       { "name": "PredictionDateTime", "type": "datetime", "null": true },
+                       { "name": "WasPredicted", "type": "float", "null": true },
+                       { "name": "Error", "type": "float", "null": true },
+                       { "name": "MeanError", "type": "float", "null": true }
     ]
     for (var ii = 0; ii < 10; ii++) {
         extraFields.push({ "name": "HistVal"+(ii+1), "type": "float", "null": true })
@@ -105,7 +115,7 @@ testStoreClean.addTrigger({
 // Calls function that adds missing values
 var interval = 5 * 60; // timestamp specified in seconds
 testStoreClean.addTrigger({
-    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "day")
+    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "week")
     //onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2)
 });
 
@@ -125,15 +135,15 @@ testStoreClean2.addStreamAggr({
 testStoreResampled.addStreamAggr({ name: "tick", type: "timeSeriesTick",
                                    timestamp: "DateTime", value: "Speed" });
 testStoreResampled.addStreamAggr({ name: "Ema1", type: "ema", inAggr: "tick",
-                                  emaType: "previous", interval: 30*60*1000, initWindow: 600*1000 });
+                                  emaType: "previous", interval: 30*60*1000, initWindow: 10*60*1000 });
 testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
-                                  emaType: "previous", interval: 120*60*1000, initWindow: 600*1000 });
+                                  emaType: "previous", interval: 120*60*1000, initWindow: 10*60*1000 });
 
 // Buffer defines for how many records infront prediction will be learned
 testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
 
 // Buffer for historical features
-var histVals = 3;
+var histVals = 1;
 var histValName = [];
 for (var jj = 0; jj < histVals; jj++) {
     histValName[jj] = "HistVal" + (jj + 1); //name has to start with 1
@@ -142,7 +152,13 @@ for (var jj = 0; jj < histVals; jj++) {
 
 // feature extractors for feature space
 var featureExtractors = [
+  //{ type: "random", source: testStoreResampled.name, seed: 1}, //source je treba dodat ceprav ga ne uporab
+  { type: "constant", source: testStoreResampled.name, const: 1}, //source je treba dodat ceprav ga ne uporab
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
+  { type: "numeric", source: testStoreResampled.name, field: "NumOfCars" },
+  { type: "numeric", source: testStoreResampled.name, field: "Gap" },
+  { type: "numeric", source: testStoreResampled.name, field: "Occupancy" },
+  { type: "numeric", source: testStoreResampled.name, field: "TrafficStatus" },
   { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
   { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
   { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
@@ -157,7 +173,7 @@ for (var ii = 0; ii < histValName.length; ii++) {
 var ftrSpace = analytics.newFeatureSpace(featureExtractors);
 
 // initialize linear regression
-var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim+1, "forgetFact":1.0 });
+var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
@@ -189,17 +205,11 @@ testStoreResampled.addTrigger({
         var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
         // make prediction and add to store
-        var ftrVector = ftrSpace.ftrVec(rec);
-        ftrVector.unshift(1); // hack: adds 1 to ftrVec. Should be done at FeatureExtractor
-        var prediction = linreg.predict(ftrVector);
-        //var prediction = linreg.predict(ftrSpace.ftrVec(rec));
+        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
         testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
         
         if (trainRecId > 0) {
-            var learnFtrVec = ftrSpace.ftrVec(testStoreResampled[trainRecId]);
-            learnFtrVec.unshift(1);
-            linreg.learn(learnFtrVec, rec.Speed);
-            //linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+            linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
             //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
@@ -222,8 +232,11 @@ testStoreResampled.addTrigger({
 
             // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
             // outFile.writeLine(Xstr);
-            var diff = Math.round(Math.abs(rec.Speed - testStoreResampled[trainRecId].Prediction) * 1000) / 1000;
+            var wasPredicted = testStoreResampled[trainRecId].Prediction
+            var diff = Math.round(Math.abs(rec.Speed - wasPredicted) * 1000) / 1000;
             onlineMean.update(diff)
+
+            testStoreResampled.add({ $id: rec.$id, WasPredicted: wasPredicted, Error: diff, MeanError: onlineMean.getMean() });
 
             if (rec.DateTime.day != prevRecDay) {
                 sw2.toc("Leap time");
