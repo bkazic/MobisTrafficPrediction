@@ -153,8 +153,9 @@ for (var jj = 0; jj < histVals; jj++) {
 
 // feature extractors for feature space
 var featureExtractors = [
-  //{ type: "random", source: testStoreResampled.name, seed: 1}, //source je treba dodat ceprav ga ne uporab
-  { type: "constant", source: testStoreResampled.name, const: 1}, //source je treba dodat ceprav ga ne uporab
+  { type: "constant", source: testStoreResampled.name, val: 1 }, //source je treba dodat ceprav ga ne uporab
+  { type: "jsfunc", source: testStoreResampled.name, fun: slovenianHolidayFtr.getFtr },
+  { type: "jsfunc", source: testStoreResampled.name, fun: fullMoonFtr.getFtr },
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
   { type: "numeric", source: testStoreResampled.name, field: "NumOfCars" },
   { type: "numeric", source: testStoreResampled.name, field: "Gap" },
@@ -199,6 +200,9 @@ testStoreResampled.addTrigger({
             rec[histVal] = testStoreResampled.getStreamAggr(histVal).oldest.Speed;
             testStoreResampled.add({ $id: rec.$id });
         });
+
+        console.log(slovenianHolidayFtr.getFtr(rec));
+        console.log("FtrVec: " + ftrSpace.ftrVec(rec).print());
 
         //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
 
