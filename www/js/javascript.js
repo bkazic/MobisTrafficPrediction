@@ -73,8 +73,8 @@ function initialize() {
     meanErrorData.addColumn('date', 'Date');
     meanErrorData.addColumn('number', 'Mean Error');
     
-    //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled"}');
-    getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$offset":1000,"$limit":300,"$sort":{"DateTime":-1}}');
+    getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled"}');
+    //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$offset":1000,"$limit":300,"$sort":{"DateTime":-1}}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$limit":100}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled"}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Cleaned2"}');

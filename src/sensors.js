@@ -1,4 +1,4 @@
-var analytics = require('analytics');
+var analytics = require('analytics.js');
 var assert = require('assert.js');
 var tm = require('time')
 var utilities = require('utilities.js');
@@ -11,18 +11,18 @@ Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegressi
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
 Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
-//Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/featureExtractor.js');
+Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/featureExtractor.js');
 console.say(Service.Mobis.Loop.about());
 console.say(Service.Mobis.Utils.Stat.about());
 console.say(Service.Mobis.Utils.Io.about());
-//console.say(Service.Mobis.Utils.Ftr.about());
+console.say(Service.Mobis.Utils.Ftr.about());
 
 //Test
 // Constructor for special days feature extractor
 // slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Slovenian_holidays");
-//slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
+var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
 // fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Full_moon");
-//fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
+var fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
 
 // Loading store for counter Nodes
 var filename_counters_n = "./sandbox/sensors/countersNodes.txt";
@@ -96,11 +96,12 @@ for (var i = 0; i < fileListMeasures.length; i++) {
 }
 
 
-// Open the first two stores
-var testStore = qm.store(qm.getStoreList()[1].storeName);
-var testStoreClean = qm.store(qm.getStoreList()[2].storeName);
-var testStoreClean2 = qm.store(qm.getStoreList()[3].storeName);
-var testStoreResampled = qm.store(qm.getStoreList()[4].storeName);
+// Open stores
+// Index has to go from 2 on, because specialDaysFtrExtractor inserts the first one
+var testStore = qm.store(qm.getStoreList()[2].storeName);
+var testStoreClean = qm.store(qm.getStoreList()[3].storeName);
+var testStoreClean2 = qm.store(qm.getStoreList()[4].storeName);
+var testStoreResampled = qm.store(qm.getStoreList()[5].storeName);
 
 // Here addNoDuplicateValues should be added later
 // testStore.addTrigger({
@@ -140,10 +141,10 @@ testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
                                   emaType: "previous", interval: 120*60*1000, initWindow: 10*60*1000 });
 
 // Buffer defines for how many records infront prediction will be learned
-testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
+testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 7 });
 
 // Buffer for historical features
-var histVals = 1;
+var histVals = 3;
 var histValName = [];
 for (var jj = 0; jj < histVals; jj++) {
     histValName[jj] = "HistVal" + (jj + 1); //name has to start with 1
