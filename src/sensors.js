@@ -3,25 +3,38 @@ var assert = require('assert.js');
 var tm = require('time')
 var utilities = require('utilities.js');
 
+// Create instance for stop watch
 sw = new utilities.clsStopwatch();
 sw2 = new utilities.clsStopwatch();
 
+// Import modules from lib
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Utils.RidgeRegression = require('Service/Mobis/Utils/ridgeRegression.js');
 Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
+Service.Mobis.Utils.Baseline = require('Service/Mobis/Utils/stat.js')
 Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
 Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/featureExtractor.js');
+Service.Mobis.Utils.Svmr = require('Service/Mobis/Utils/svmRegression.js');
+
+// Print module descriptions
 console.say(Service.Mobis.Loop.about());
 console.say(Service.Mobis.Utils.Stat.about());
 console.say(Service.Mobis.Utils.Io.about());
 console.say(Service.Mobis.Utils.Ftr.about());
+console.say(Service.Mobis.Utils.Svmr.about());
 
-//Test
+// Create instance of imported module
+var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var avrValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var prevValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var linregMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var ridgeRegMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var svmrMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var nnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+
 // Constructor for special days feature extractor
-// slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Slovenian_holidays");
 var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
-// fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor(specialDaysStore, "Full_moon");
 var fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
 
 // Loading store for counter Nodes
@@ -77,9 +90,26 @@ for (var i = 0; i < fileListMeasures.length; i++) {
     //
 
     // adding fields for historical values
-    var extraFields = [{ "name": "Ema1", "type": "float", "null": true },
+    var extraFields = [{ "name": "Target", "type": "float", "null": true, "default": 0.0 },
+                       { "name": "Ema1", "type": "float", "null": true },
                        { "name": "Ema2", "type": "float", "null": true },
-                       { "name": "Prediction", "type": "float", "null": true },
+
+                       { "name": "SpeedLimit", "type": "float", "null": true },
+                       { "name": "PrevValPred", "type": "float", "null": true },
+                       { "name": "AvrValPred", "type": "float", "null": true },
+                       { "name": "LinregPred", "type": "float", "null": true },
+                       { "name": "RidgeRegPred", "type": "float", "null": true },
+                       { "name": "SvmrPred", "type": "float", "null": true },
+                       { "name": "NNPred", "type": "float", "null": true },
+
+                       { "name": "SpeedLimitMAE", "type": "float", "null": true },
+                       { "name": "PrevValPredMAE", "type": "float", "null": true },
+                       { "name": "AvrValPredMAE", "type": "float", "null": true },
+                       { "name": "LinregPredMAE", "type": "float", "null": true },
+                       { "name": "RidgeRegPredMAE", "type": "float", "null": true },
+                       { "name": "SvmrPredMAE", "type": "float", "null": true },
+                       { "name": "NNPredMAE", "type": "float", "null": true },
+
                        { "name": "PredictionDateTime", "type": "datetime", "null": true },
                        { "name": "WasPredicted", "type": "float", "null": true },
                        { "name": "Error", "type": "float", "null": true },
@@ -108,9 +138,18 @@ var testStoreResampled = qm.store(qm.getStoreList()[5].storeName);
 //   onAdd : 
 // });
 
+var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 // Calls function that cleanes speed when no cars are detected
+//testStoreClean.addTrigger({
+//    onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean, avr.getAvr())
+//});
+
 testStoreClean.addTrigger({
-  onAdd : Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean)
+    onAdd: function (rec) {
+        if (rec.NumOfCars === 0) {
+            rec.Speed = avr.getAvr();
+        }
+    }
 });
 
 // Calls function that adds missing values
@@ -125,11 +164,11 @@ testStoreClean2.addStreamAggr({
     name: "Resample1min", type: "resampler",
     outStore: testStoreResampled.name, timestamp: "DateTime",
     fields: [{ name: "NumOfCars", interpolator: "previous" },
-              { name: "Gap", interpolator: "previous" },
-              { name: "Occupancy", interpolator: "previous" },
-              { name: "Speed", interpolator: "previous" },
-              { name: "TrafficStatus", interpolator: "previous" }],
-    createStore: false, interval: 10 * 60 * 1000
+             { name: "Gap", interpolator: "previous" },
+             { name: "Occupancy", interpolator: "previous" },
+             { name: "Speed", interpolator: "previous" },
+             { name: "TrafficStatus", interpolator: "previous" }],
+    createStore: false, interval: 60 * 60 * 1000
 });
 
 // insert testStoreResampled store aggregates
@@ -141,7 +180,7 @@ testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
                                   emaType: "previous", interval: 120*60*1000, initWindow: 10*60*1000 });
 
 // Buffer defines for how many records infront prediction will be learned
-testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 7 });
+testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
 
 // Buffer for historical features
 var histVals = 3;
@@ -153,7 +192,7 @@ for (var jj = 0; jj < histVals; jj++) {
 
 // feature extractors for feature space
 var featureExtractors = [
-  { type: "constant", source: testStoreResampled.name, val: 1 }, //source je treba dodat ceprav ga ne uporab
+  { type: "constant", source: testStoreResampled.name, val: 1 }, 
   { type: "jsfunc", source: testStoreResampled.name, fun: slovenianHolidayFtr.getFtr },
   { type: "jsfunc", source: testStoreResampled.name, fun: fullMoonFtr.getFtr },
   { type: "numeric", source: testStoreResampled.name, field: "Speed" },
@@ -174,8 +213,13 @@ for (var ii = 0; ii < histValName.length; ii++) {
 // Define feature space
 var ftrSpace = analytics.newFeatureSpace(featureExtractors);
 
-// initialize linear regression
+//// initialize prediction methods
+//var avr = Service.Mobis.Utils.Baseline.newAvrVal();
+var ridgeRegression = new analytics.ridgeRegression(10000, ftrSpace.dim, 100);
+//var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 0.98, "regFact": 10000 });
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
+var svmr = Service.Mobis.Utils.Svmr.newSvmRegression(featureExtractors, testStoreResampled.field("Target"), 100, { "c": 2.0, "eps": 1.0 });
+var NN = analytics.newNN({ "layout": [ftrSpace.dim, 4, 1], "tFuncHidden": "sigmoid", "tFuncOut": "linear", "learnRate": 0.2, "momentum": 0.2 });
 
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
@@ -191,31 +235,39 @@ var prevRecDay = null;
 //var outFile = fs.openAppend("./sandbox/sensors/test/newtest5min.txt");
 testStoreResampled.addTrigger({
     onAdd: function (rec) {
-        var ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
-        var ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
-        testStoreResampled.add({ $id: rec.$id, Ema1: ema1, Ema2: ema2 });
+        rec.Ema1 = testStoreResampled.getStreamAggr("Ema1").EMA;
+        rec.Ema2 = testStoreResampled.getStreamAggr("Ema2").EMA;
 
         // add historical features
         histValName.forEach(function (histVal) {
             rec[histVal] = testStoreResampled.getStreamAggr(histVal).oldest.Speed;
-            testStoreResampled.add({ $id: rec.$id });
         });
 
-        console.log(slovenianHolidayFtr.getFtr(rec));
-        console.log("FtrVec: " + ftrSpace.ftrVec(rec).print());
-
-        //var prediction = ridgeRegression.predict(ftrSpace.ftrVec(rec));
+        // Predict and add to rec
+        rec.SpeedLimit = 50;
+        rec.PrevValPred = rec.Speed;
+        rec.AvrValPred = avr.getAvr();
+        rec.LinregPred = linreg.predict(ftrSpace.ftrVec(rec));
+        rec.RidgeRegPred = ridgeRegression.predict(ftrSpace.ftrVec(rec));
+        rec.SvmrPred = svmr.predict(rec);
+        rec.NNPred = NN.predict(ftrSpace.ftrVec(rec)).at(0);
 
         // training record
         var trainRecId = testStoreResampled.getStreamAggr("delay").first;
 
-        // make prediction and add to store
-        var prediction = linreg.predict(ftrSpace.ftrVec(rec));
-        testStoreResampled.add({ $id: rec.$id, Prediction: prediction });
-        
+        // Add target for batch method
+        testStoreResampled.add({ $id: trainRecId, Target: rec.Speed });
+
         if (trainRecId > 0) {
+            // update models
             linreg.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
-            //ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+            ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
+            NN.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), la.newVec([rec.Speed]));
+            avr.update(testStoreResampled[trainRecId].Speed);
+
+            var rs = testStoreResampled.recs;
+            rs.filterById(0, trainRecId);
+            svmr.learn(rs);
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
             //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
@@ -237,27 +289,67 @@ testStoreResampled.addTrigger({
 
             // var Xstr = Service.Mobis.Utils.Io.printStr(trainVector);
             // outFile.writeLine(Xstr);
-            var wasPredicted = testStoreResampled[trainRecId].Prediction
-            var diff = Math.round(Math.abs(rec.Speed - wasPredicted) * 1000) / 1000;
-            onlineMean.update(diff)
 
-            testStoreResampled.add({ $id: rec.$id, WasPredicted: wasPredicted, Error: diff, MeanError: onlineMean.getMean() });
+            // TOJ BLO PREJ NOT. POMOJE TO ZDJ NE RABS
+            //var wasPredicted = testStoreResampled[trainRecId].Prediction
+            //var diff = Math.round(Math.abs(rec.Speed - wasPredicted) * 1000) / 1000;
+            //onlineMean.update(diff)
 
-            if (rec.DateTime.day != prevRecDay) {
-                sw2.toc("Leap time");
-                sw2.tic();
-                console.log("Working on rec: " + rec.DateTime.dateString);
-                // check prediction
-                
-                //console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+            //testStoreResampled.add({ $id: rec.$id, WasPredicted: wasPredicted, Error: diff, MeanError: onlineMean.getMean() });
 
-                //if (testStoreResampled.length < 10) { return; }
-                //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
-
-                console.log("Total error: " + onlineMean.getMean() + "\n");
-                // set new prevRecDay
-                prevRecDay = rec.DateTime.day;
+            //// skip first few iterations because the error of svmr is to high
+            if (rec.$id > 30) {
+                // Calculate mean
+                speedLimitMAE.update(rec.Speed - testStoreResampled[trainRecId].SpeedLimit)
+                avrValMAE.update(rec.Speed - testStoreResampled[trainRecId].AvrValPred);
+                prevValMAE.update(rec.Speed - testStoreResampled[trainRecId].Speed);
+                linregMAE.update(rec.Speed - testStoreResampled[trainRecId].LinregPred);
+                ridgeRegMAE.update(rec.Speed - testStoreResampled[trainRecId].RidgeRegPred);
+                svmrMAE.update(rec.Speed - testStoreResampled[trainRecId].SvmrPred);
+                nnMAE.update(rec.Speed - testStoreResampled[trainRecId].NNPred);
             }
+        }
+        // Write errors to store
+        rec.SpeedLimitMAE = speedLimitMAE.getError();
+        rec.PrevValPredMAE = avrValMAE.getError();
+        rec.AvrValPredMAE = prevValMAE.getError();
+        rec.LinregPredMAE = linregMAE.getError();
+        rec.RidgeRegPredMAE = ridgeRegMAE.getError();
+        rec.SvmrPredMAE = svmrMAE.getError();
+        rec.NNPredMAE = nnMAE.getError();
+
+        if (rec.DateTime.day != prevRecDay) {
+            sw2.toc("Leap time");
+            sw2.tic();
+            console.log("Working on rec: " + rec.DateTime.dateString);
+            // check prediction
+
+            //console.log("Diff: " + diff + ", Value: " + rec.Speed + ", Prediction: " + testStoreResampled[trainRecId].Prediction);
+
+            //if (testStoreResampled.length < 10) { return; }
+            //var mean = Service.Mobis.Utils.Stat.onlineMeanError(diff);
+
+            console.log("Speed:" + rec.Speed);
+            console.log("SpeedLimit: " + 50.0);
+            console.log("AvrVal: " + testStoreResampled[trainRecId].AvrValPred);
+            console.log("PrevVal: " + testStoreResampled[trainRecId].PrevValPred);
+            console.log("LinReg: " + testStoreResampled[trainRecId].LinregPred);
+            console.log("RidgeReg: " + testStoreResampled[trainRecId].RidgeRegPred);
+            console.log("Svmr: " + testStoreResampled[trainRecId].SvmrPred);
+            console.log("NN: " + testStoreResampled[trainRecId].NNPred + "\n");
+
+            // Write errors to console
+            console.log("Working with rec: " + rec.$id);
+            console.log("SpeedLimit MAE Error: " + speedLimitMAE.getError());
+            console.log("AvrVal MAE Error: " + avrValMAE.getError());
+            console.log("PrevVal MAE Error: " + prevValMAE.getError());
+            console.log("LinReg MAE Error: " + linregMAE.getError());
+            console.log("RidgeReg MAE Error: " + ridgeRegMAE.getError());
+            console.log("Svmr MAE Error: " + svmrMAE.getError());
+            console.log("NN MAE Error: " + nnMAE.getError() + "\n");
+
+            // set new prevRecDay
+            prevRecDay = rec.DateTime.day;
         }
     }
 });

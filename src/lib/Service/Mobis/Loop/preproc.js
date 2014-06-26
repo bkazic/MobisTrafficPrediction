@@ -46,12 +46,15 @@ exports.addNoDuplicateValues = function (outStore, rec) {
 };
 
 // If there is no cars, set speed to speed limit
-exports.makeCleanSpeedNoCars = function (outStore) {
+exports.makeCleanSpeedNoCars = function (outStore, replaceVal) {
     var store = outStore;
+    var val = replaceVal;
+    console.log("Replaced value: " + val);
     function cleanSpeedNoCars(rec) {
         if (rec.NumOfCars === 0) {
-            speed = rec.measuredBy.MaxSpeed;
-            store.add({ $id: rec.$id, Speed: speed, TrafficStatus: 1 });
+            //speed = rec.measuredBy.MaxSpeed;
+            //store.add({ $id: rec.$id, Speed: speed, TrafficStatus: 1 });
+            store.add({ $id: rec.$id, Speed: val, TrafficStatus: 1 });
         }
     }
     return cleanSpeedNoCars;

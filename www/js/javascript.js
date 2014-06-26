@@ -26,16 +26,33 @@ function getHttp(path) {
 
 function drawChart(data) {
     var options = {
-        legend: { position: 'bottom' }
+        legend: {
+            position: 'bottom'
+        },
+        explorer: {
+            maxZoomOut: 1,
+            maxZoomin: 0.1,
+            keepInBounds: true
+            //zoomDelta: 1.1
+        }
+        //displayAnnotations: false,
     };
 
     for (var i = 0; i < data.length; i++) {
         var rec = data[i];
         var date = new Date(rec.DateTime);
 
-        speedData.addRow([date, rec.Speed, rec.WasPredicted, rec.Ema1]);
-        errorData.addRow([date, rec.Error]);
-        meanErrorData.addRow([date, rec.MeanError]);
+        //speedData.addRow([date, rec.Target, rec.SpeedLimit, rec.Ema1, rec.PrevValPred,
+        //                  rec.AvrValPred, rec.LinregPred, rec.SvmrPred, rec.NNPred]);
+        speedData.addRow([date, rec.Target, rec.LinregPred, rec.SvmrPred, rec.NNPred]);
+
+        //errorData.addRow([date, rec.Target-rec.SpeedLimit, rec.Target-rec.PrevValPred, rec.Target-rec.AvrValPred,
+        //                  rec.Target - rec.LinregPred, rec.Target - rec.SvmrPred, rec.Target - rec.NNPred]);
+        errorData.addRow([date, rec.Target - rec.LinregPred, rec.Target - rec.SvmrPred, rec.Target - rec.NNPred]);
+
+        //meanErrorData.addRow([date, rec.SpeedLimitMAE, rec.PrevValPredMAE, rec.AvrValPredMAE,
+        //                      rec.LinregPredMAE, rec.SvmrPredMAE, rec.NNPredMAE]);
+        meanErrorData.addRow([date, rec.LinregPredMAE, rec.SvmrPredMAE, rec.NNPredMAE]);
 
     }
 
@@ -54,6 +71,7 @@ function drawChart(data) {
 
 function initialize() {
     speedChart = new google.visualization.LineChart(document.getElementById('chart_speed'));
+    //speedChart = new google.visualization.AnnotationChart(document.getElementById('chart_speed'));
     errorChart = new google.visualization.LineChart(document.getElementById('chart_error'));
     meanErrorChart = new google.visualization.LineChart(document.getElementById('chart_meanError'));
 
@@ -62,19 +80,35 @@ function initialize() {
     meanErrorData = new google.visualization.DataTable();
 
     speedData.addColumn('date', 'Date');
-    speedData.addColumn('number', 'Speed');
-    speedData.addColumn('number', 'Predicted Speed');
-    speedData.addColumn('number', 'EMA');
+    speedData.addColumn('number', 'Target Speed');
+    //speedData.addColumn('number', 'Speed Limit');
+    //speedData.addColumn('number', 'EMA');
+    //speedData.addColumn('number', 'Previous value');
+    //speedData.addColumn('number', 'Average value');
+    speedData.addColumn('number', 'Linear regression');
+    speedData.addColumn('number', 'SVM regression');
+    speedData.addColumn('number', 'Neural Networks');
+    //speedData.addColumn('number', 'EMA');
 
 
     errorData.addColumn('date', 'Date');
-    errorData.addColumn('number', 'Error');
+    //errorData.addColumn('number', 'Speed Limit Error');
+    //errorData.addColumn('number', 'Previous value Error');
+    //errorData.addColumn('number', 'Average value Error');
+    errorData.addColumn('number', 'LinReg Error');
+    errorData.addColumn('number', 'SVMR Error');
+    errorData.addColumn('number', 'NN Error');
 
     meanErrorData.addColumn('date', 'Date');
-    meanErrorData.addColumn('number', 'Mean Error');
+    //meanErrorData.addColumn('number', 'SpeedLimitMAE');
+    //meanErrorData.addColumn('number', 'PrevValPredMAE');
+    //meanErrorData.addColumn('number', 'AvrValPredMAE');
+    meanErrorData.addColumn('number', 'LinReg MAE');
+    meanErrorData.addColumn('number', 'SVMR MAE');
+    meanErrorData.addColumn('number', 'NN MAE');
     
     getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled"}');
-    //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$offset":1000,"$limit":300,"$sort":{"DateTime":-1}}');
+    //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$offset":1000,"$limit":1000,"$sort":{"DateTime":-1}}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled","$limit":100}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Resampled"}');
     //getHttp('/sensors/query?data={"$from":"CounterMeasurement_0016_21_Cleaned2"}');
@@ -85,4 +119,5 @@ function initialize() {
 }
 
 google.load('visualization', '1.0', { 'packages': ['corechart'] });
+//google.load('visualization', '1.1', { 'packages': ['annotationchart'] });
 google.setOnLoadCallback(initialize);

@@ -16,10 +16,12 @@ var storeDef = [{
 qm.createStore(storeDef);
 
 // loads holidays to store
-var specialDaysFile = "./sandbox/sensors/specialDays.txt";
+var scriptNm = process.scriptNm;
+var specialDaysFile = "./sandbox/" + scriptNm + "/specialDays.txt";
 var specialDaysStore = qm.store('specialDays');
 qm.load.jsonFile(specialDaysStore, specialDaysFile);
 
+// main "object"
 exports.specialDaysFtrExtractor = function (key, store) {
     store = typeof store !== 'undefined' ? store : specialDaysStore;
     // check if key exists
@@ -40,6 +42,6 @@ exports.specialDaysFtrExtractor = function (key, store) {
 
 // About this module
 exports.about = function () {
-    var description = "This module contains functions for calendar feature extractors defined in specialDays.txt.";
+    var description = "Module contains functions for special days feature extractors defined in specialDays.txt.";
     return description;
 };
