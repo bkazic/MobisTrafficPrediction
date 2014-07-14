@@ -15,6 +15,7 @@ Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
 Service.Mobis.Utils.Baseline = require('Service/Mobis/Utils/stat.js')
 Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
 Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/featureExtractor.js');
+Service.Mobis.Utils.WeatherFtr = require('Service/Mobis/Utils/weatherFtrExtractor.js');
 Service.Mobis.Utils.Svmr = require('Service/Mobis/Utils/svmRegression.js');
 
 // Print module descriptions
@@ -23,6 +24,7 @@ console.say(Service.Mobis.Utils.Stat.about());
 console.say(Service.Mobis.Utils.Io.about());
 console.say(Service.Mobis.Utils.Ftr.about());
 console.say(Service.Mobis.Utils.Svmr.about());
+console.say(Service.Mobis.Utils.WeatherFtr.about());
 
 // Create instance of imported module
 var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
@@ -32,6 +34,8 @@ var linregMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var ridgeRegMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var svmrMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var nnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var knnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+
 
 // Constructor for special days feature extractor
 var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
@@ -101,6 +105,7 @@ for (var i = 0; i < fileListMeasures.length; i++) {
                        { "name": "RidgeRegPred", "type": "float", "null": true },
                        { "name": "SvmrPred", "type": "float", "null": true },
                        { "name": "NNPred", "type": "float", "null": true },
+                       { "name": "KNNPred", "type": "float", "null": true },
 
                        { "name": "SpeedLimitMAE", "type": "float", "null": true },
                        { "name": "PrevValPredMAE", "type": "float", "null": true },
@@ -109,6 +114,7 @@ for (var i = 0; i < fileListMeasures.length; i++) {
                        { "name": "RidgeRegPredMAE", "type": "float", "null": true },
                        { "name": "SvmrPredMAE", "type": "float", "null": true },
                        { "name": "NNPredMAE", "type": "float", "null": true },
+                       { "name": "KNNPredMAE", "type": "float", "null": true },
 
                        { "name": "PredictionDateTime", "type": "datetime", "null": true },
                        { "name": "WasPredicted", "type": "float", "null": true },
@@ -127,11 +133,11 @@ for (var i = 0; i < fileListMeasures.length; i++) {
 
 
 // Open stores
-// Index has to go from 2 on, because specialDaysFtrExtractor inserts the first one
-var testStore = qm.store(qm.getStoreList()[2].storeName);
-var testStoreClean = qm.store(qm.getStoreList()[3].storeName);
-var testStoreClean2 = qm.store(qm.getStoreList()[4].storeName);
-var testStoreResampled = qm.store(qm.getStoreList()[5].storeName);
+// Index has to go from 5 on, because specialDaysFtrExtractor inserts one, and weatherFtrExtrcator three
+var testStore = qm.store(qm.getStoreList()[5].storeName);
+var testStoreClean = qm.store(qm.getStoreList()[6].storeName);
+var testStoreClean2 = qm.store(qm.getStoreList()[7].storeName);
+var testStoreResampled = qm.store(qm.getStoreList()[8].storeName);
 
 // Here addNoDuplicateValues should be added later
 // testStore.addTrigger({
@@ -140,26 +146,29 @@ var testStoreResampled = qm.store(qm.getStoreList()[5].storeName);
 
 var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 // Calls function that cleanes speed when no cars are detected
-//testStoreClean.addTrigger({
-//    onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean, avr.getAvr())
-//});
-
 testStoreClean.addTrigger({
-    onAdd: function (rec) {
-        if (rec.NumOfCars === 0) {
-            rec.Speed = avr.getAvr();
-        }
-    }
+    onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(testStoreClean, avr)
+
 });
 
+//TODO: make this as callback function
+//testStoreClean.addTrigger({
+//    onAdd: function (rec) {
+//        if (rec.NumOfCars === 0) {
+//            testStoreClean.add({ $id: rec.$id, Speed: avr.getAvr(), TrafficStatus: 1 });
+//        }
+//    }
+//});
+
 // Calls function that adds missing values
-var interval = 5 * 60; // timestamp specified in seconds
+var streamInterval = 5 * 60; // timestamp specified in seconds
 testStoreClean.addTrigger({
-    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2, 1, "week")
-    //onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, interval, testStoreClean2)
+    onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, streamInterval, testStoreClean2, 1, "week")
+    //onAdd: Service.Mobis.Loop.makeAddMissingValues(testStoreClean, streamInterval, testStoreClean2)
 });
 
 // This resample aggregator creates new resampled store
+var resampleInterval = 60 * 60 * 1000;
 testStoreClean2.addStreamAggr({
     name: "Resample1min", type: "resampler",
     outStore: testStoreResampled.name, timestamp: "DateTime",
@@ -168,7 +177,7 @@ testStoreClean2.addStreamAggr({
              { name: "Occupancy", interpolator: "previous" },
              { name: "Speed", interpolator: "previous" },
              { name: "TrafficStatus", interpolator: "previous" }],
-    createStore: false, interval: 60 * 60 * 1000
+    createStore: false, interval: resampleInterval
 });
 
 // insert testStoreResampled store aggregates
@@ -183,25 +192,40 @@ testStoreResampled.addStreamAggr({ name: "Ema2", type: "ema", inAggr: "tick",
 testStoreResampled.addStreamAggr({ name: "delay", type: "recordBuffer", size: 2 });
 
 // Buffer for historical features
-var histVals = 3;
+var histVals = 0;
 var histValName = [];
 for (var jj = 0; jj < histVals; jj++) {
     histValName[jj] = "HistVal" + (jj + 1); //name has to start with 1
     testStoreResampled.addStreamAggr({ name: histValName[jj], type: "recordBuffer", size: jj + 2 }); //if size is 2, this is the first hist val
 };
 
+// Instance for weather feature extractor
+var weatherFtr = Service.Mobis.Utils.WeatherFtr.newWeatherFeatureExtracotr(resampleInterval);
+
 // feature extractors for feature space
 var featureExtractors = [
   { type: "constant", source: testStoreResampled.name, val: 1 }, 
   { type: "jsfunc", source: testStoreResampled.name, fun: slovenianHolidayFtr.getFtr },
   { type: "jsfunc", source: testStoreResampled.name, fun: fullMoonFtr.getFtr },
-  { type: "numeric", source: testStoreResampled.name, field: "Speed" },
-  { type: "numeric", source: testStoreResampled.name, field: "NumOfCars" },
-  { type: "numeric", source: testStoreResampled.name, field: "Gap" },
-  { type: "numeric", source: testStoreResampled.name, field: "Occupancy" },
-  { type: "numeric", source: testStoreResampled.name, field: "TrafficStatus" },
-  { type: "numeric", source: testStoreResampled.name, field: "Ema1" },
-  { type: "numeric", source: testStoreResampled.name, field: "Ema2" },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getTemperature },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getVisibility },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getClearDay },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getClearNight },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getRain },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getSnow },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getSleet },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getWind },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getFog },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getCloudy },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getPartlyCloudyDay },
+  { type: "jsfunc", source: testStoreResampled.name, fun: weatherFtr.getParltlyCloudyNight },
+  { type: "numeric", source: testStoreResampled.name, field: "Speed", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "NumOfCars", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "Gap", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "Occupancy", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "TrafficStatus", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "Ema1", normalize: true },
+  { type: "numeric", source: testStoreResampled.name, field: "Ema2", normalize: true },
   { type: "multinomial", source: testStoreResampled.name, field: "DateTime", datetime: true }
 ]
 
@@ -220,13 +244,14 @@ var ridgeRegression = new analytics.ridgeRegression(10000, ftrSpace.dim, 100);
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact":1.0 });
 var svmr = Service.Mobis.Utils.Svmr.newSvmRegression(featureExtractors, testStoreResampled.field("Target"), 100, { "c": 2.0, "eps": 1.0 });
 var NN = analytics.newNN({ "layout": [ftrSpace.dim, 4, 1], "tFuncHidden": "sigmoid", "tFuncOut": "linear", "learnRate": 0.2, "momentum": 0.2 });
+var knn = analytics.newKNearestNeighbors(2, 100, 1);
 
 // Initialize ridge regression. Input parameters: regularization factor, dimension, buffer.
 //console.say(Service.Mobis.Utils.RidgeRegression.about());
 //var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim, 100);
 //var ridgeRegression = new Service.Mobis.Utils.RidgeRegression.ridgeRegression(0.003, ftrSpace.dim);
 
-var onlineMean = new Service.Mobis.Utils.Stat.meanError();
+//var onlineMean = new Service.Mobis.Utils.Stat.meanError();
 
 sw.tic();
 sw2.tic();
@@ -249,8 +274,9 @@ testStoreResampled.addTrigger({
         rec.AvrValPred = avr.getAvr();
         rec.LinregPred = linreg.predict(ftrSpace.ftrVec(rec));
         rec.RidgeRegPred = ridgeRegression.predict(ftrSpace.ftrVec(rec));
-        rec.SvmrPred = svmr.predict(rec);
+        //rec.SvmrPred = svmr.predict(rec);
         rec.NNPred = NN.predict(ftrSpace.ftrVec(rec)).at(0);
+        rec.KNNPred = knn.predict(ftrSpace.ftrVec(rec));
 
         // training record
         var trainRecId = testStoreResampled.getStreamAggr("delay").first;
@@ -264,10 +290,11 @@ testStoreResampled.addTrigger({
             ridgeRegression.addupdate(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
             NN.learn(ftrSpace.ftrVec(testStoreResampled[trainRecId]), la.newVec([rec.Speed]));
             avr.update(testStoreResampled[trainRecId].Speed);
+            knn.update(ftrSpace.ftrVec(testStoreResampled[trainRecId]), rec.Speed);
 
             var rs = testStoreResampled.recs;
             rs.filterById(0, trainRecId);
-            svmr.learn(rs);
+            //svmr.learn(rs);
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
             //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
@@ -307,6 +334,7 @@ testStoreResampled.addTrigger({
                 ridgeRegMAE.update(rec.Speed - testStoreResampled[trainRecId].RidgeRegPred);
                 svmrMAE.update(rec.Speed - testStoreResampled[trainRecId].SvmrPred);
                 nnMAE.update(rec.Speed - testStoreResampled[trainRecId].NNPred);
+                knnMAE.update(rec.Speed - testStoreResampled[trainRecId].KNNPred);
             }
         }
         // Write errors to store
@@ -317,6 +345,7 @@ testStoreResampled.addTrigger({
         rec.RidgeRegPredMAE = ridgeRegMAE.getError();
         rec.SvmrPredMAE = svmrMAE.getError();
         rec.NNPredMAE = nnMAE.getError();
+        rec.KNNPredMAE = nnMAE.getError();
 
         if (rec.DateTime.day != prevRecDay) {
             sw2.toc("Leap time");
@@ -336,7 +365,8 @@ testStoreResampled.addTrigger({
             console.log("LinReg: " + testStoreResampled[trainRecId].LinregPred);
             console.log("RidgeReg: " + testStoreResampled[trainRecId].RidgeRegPred);
             console.log("Svmr: " + testStoreResampled[trainRecId].SvmrPred);
-            console.log("NN: " + testStoreResampled[trainRecId].NNPred + "\n");
+            console.log("NN: " + testStoreResampled[trainRecId].NNPred);
+            console.log("KNN: " + testStoreResampled[trainRecId].KNNPred + "\n");
 
             // Write errors to console
             console.log("Working with rec: " + rec.$id);
@@ -346,7 +376,8 @@ testStoreResampled.addTrigger({
             console.log("LinReg MAE Error: " + linregMAE.getError());
             console.log("RidgeReg MAE Error: " + ridgeRegMAE.getError());
             console.log("Svmr MAE Error: " + svmrMAE.getError());
-            console.log("NN MAE Error: " + nnMAE.getError() + "\n");
+            console.log("NN MAE Error: " + nnMAE.getError());
+            console.log("KNN MAE Error: " + knnMAE.getError() + "\n");
 
             // set new prevRecDay
             prevRecDay = rec.DateTime.day;

@@ -35,7 +35,6 @@ function drawChart(data) {
             keepInBounds: true
             //zoomDelta: 1.1
         }
-        //displayAnnotations: false,
     };
 
     for (var i = 0; i < data.length; i++) {
@@ -44,7 +43,7 @@ function drawChart(data) {
 
         //speedData.addRow([date, rec.Target, rec.SpeedLimit, rec.Ema1, rec.PrevValPred,
         //                  rec.AvrValPred, rec.LinregPred, rec.SvmrPred, rec.NNPred]);
-        speedData.addRow([date, rec.Target, rec.LinregPred, rec.SvmrPred, rec.NNPred]);
+        speedData.addRow([date, rec.Target, rec.Ema1, rec.Ema2, rec.LinregPred, rec.SvmrPred, rec.NNPred]);
 
         //errorData.addRow([date, rec.Target-rec.SpeedLimit, rec.Target-rec.PrevValPred, rec.Target-rec.AvrValPred,
         //                  rec.Target - rec.LinregPred, rec.Target - rec.SvmrPred, rec.Target - rec.NNPred]);
@@ -70,10 +69,12 @@ function drawChart(data) {
 
 
 function initialize() {
-    speedChart = new google.visualization.LineChart(document.getElementById('chart_speed'));
-    //speedChart = new google.visualization.AnnotationChart(document.getElementById('chart_speed'));
+    //speedChart = new google.visualization.LineChart(document.getElementById('chart_speed'));
+    speedChart = new google.visualization.AnnotationChart(document.getElementById('chart_speed'));
     errorChart = new google.visualization.LineChart(document.getElementById('chart_error'));
+    //errorChart = new google.visualization.AnnotationChart(document.getElementById('chart_error'));
     meanErrorChart = new google.visualization.LineChart(document.getElementById('chart_meanError'));
+    //meanErrorChart = new google.visualization.AnnotationChart(document.getElementById('chart_meanError'));
 
     speedData = new google.visualization.DataTable();
     errorData = new google.visualization.DataTable();
@@ -82,13 +83,14 @@ function initialize() {
     speedData.addColumn('date', 'Date');
     speedData.addColumn('number', 'Target Speed');
     //speedData.addColumn('number', 'Speed Limit');
-    //speedData.addColumn('number', 'EMA');
+    speedData.addColumn('number', 'EMA');
+    speedData.addColumn('number', 'EMA2');
     //speedData.addColumn('number', 'Previous value');
     //speedData.addColumn('number', 'Average value');
     speedData.addColumn('number', 'Linear regression');
     speedData.addColumn('number', 'SVM regression');
     speedData.addColumn('number', 'Neural Networks');
-    //speedData.addColumn('number', 'EMA');
+
 
 
     errorData.addColumn('date', 'Date');
@@ -118,6 +120,6 @@ function initialize() {
 
 }
 
-google.load('visualization', '1.0', { 'packages': ['corechart'] });
-//google.load('visualization', '1.1', { 'packages': ['annotationchart'] });
+//google.load('visualization', '1.0', { 'packages': ['corechart'] });
+google.load('visualization', '1.1', { 'packages': ['annotationchart'] });
 google.setOnLoadCallback(initialize);

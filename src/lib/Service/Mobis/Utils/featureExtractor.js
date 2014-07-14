@@ -36,6 +36,7 @@ exports.specialDaysFtrExtractor = function (key, store) {
     // getter for feature
     this.getFtr = function (rec) {
         var recDate = rec.DateTime.dateString;
+        //console.log("Poklican: " + rec.DateTime.string)
         return extractFtr(recDate, store, key);
     };
 }
