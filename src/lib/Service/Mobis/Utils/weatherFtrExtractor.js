@@ -94,7 +94,13 @@ resampleStore = function (intervalNum) {
 }
 
 
+// Exports this module
+exports.newWeatherFeatureExtracotr = function (interval, store) {
+    return new weatherFeatureExtractor(interval, store);
+}
+
 weatherFeatureExtractor = function (interval, store) {
+    // Adds data fields, and resamples store
     resampleStore(interval);
     store = typeof store !== 'undefined' ? store : resampledStore;
 
@@ -108,6 +114,7 @@ weatherFeatureExtractor = function (interval, store) {
             console.log("Error", "Did not find correct weather data match.")
             return false
     }
+
 
     this.getTemperature = function (rec) {
         key = rec.DateTime.string;
@@ -183,11 +190,26 @@ weatherFeatureExtractor = function (interval, store) {
         return hit.parltlyCloudyNight;
     }
 
-}
+    this.getAll = function (rec) {
+        key = rec.DateTime.string;
+        var hit = findRec(key);
+        var returnVec = la.newVec([
+            hit.temperature,
+            hit.visibility,
+            hit.clearDay,
+            hit.clearNight,
+            hit.rain,
+            hit.snow,
+            hit.sleet,
+            hit.wind,
+            hit.fog,
+            hit.cloudy,
+            hit.partlyCloudyDay,
+            hit.parltlyCloudyNight
+        ]);
+        return 
+    }
 
-// Exports this module
-exports.newWeatherFeatureExtracotr = function (interval, store) {
-    return new weatherFeatureExtractor(interval, store);
 }
 
 // About this module

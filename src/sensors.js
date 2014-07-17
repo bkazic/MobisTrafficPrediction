@@ -298,6 +298,7 @@ testStoreResampled.addTrigger({
 
             //console.log("Train: " + testStoreResampled[trainRecId].DateTime.string + ", Pred: " + rec.DateTime.string);
             //console.log("FtrVec: " + ftrSpace.ftrVec(testStoreResampled[trainRecId]).print())
+            //console.start()
 
             // add time of prediction
             var predictionHorizon = rec.DateTime.timestamp - testStoreResampled[trainRecId].DateTime.timestamp;
